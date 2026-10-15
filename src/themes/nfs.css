@@ -1,0 +1,27 @@
+/* Dashboard theme for NFS: converts the dark brown theme to the dashboard's light navy theme. Styling only. */
+:root{--bg:#eef2f7;--s1:#fff;--s2:#f4f8fd;--border:#d5deea;--accent:#1b4b82;--accent2:#1b4b82;
+  --green:#1e7e34;--red:#c62828;--yellow:#8a6d00;--orange:#c2540a;
+  --text:#1a2433;--text2:#4a5d75;--text3:#7a8ba0;
+  --mbg:#e6f4ea;--mfg:#1e7e34;--pbg:#e3eefb;--pfg:#1b4b82;--ebg:#fdecea;--efg:#c62828;--dbg:#fff4e0;--dfg:#b26a00}
+.hdr{background:#0f2540;border-bottom:none}
+.hdr-t{color:#fff}.hdr-s{color:#9db6d3}
+.tag{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#cfe0f5}
+.card{border-radius:10px;box-shadow:0 1px 3px rgba(15,37,64,.06)}
+.up-btn:hover,.drop-zone:hover,.drop-zone.drag{background:#e3eefb;border-color:#4da3ff}
+.btn-run{background:#1b4b82;color:#fff}.btn-run:hover:not(:disabled){background:#153c6a}
+.btn-exp{background:#1e7e34}.btn-exp:hover:not(:disabled){background:#17652a}
+.btn-imp{background:#fff;color:#1b4b82;border-color:#1b4b82}.btn-imp:hover{background:#e3eefb}
+.btn:disabled{opacity:.45}
+.dg-gray{background:#eef2f7;color:#4a5d75}.dg-green{background:#e6f4ea;color:#1e7e34}
+.dg-red{background:#fdecea;color:#c62828}.dg-blue{background:#e3eefb;color:#1b4b82}.dg-orange{background:#fff4e0;color:#b26a00}
+.log{background:#0f2540;border-color:#0f2540}
+.ll-ok{color:#7ddc92}.ll-err{color:#ff8a8a}.ll-warn{color:#ffd580}.ll-info{color:#9ccbff}
+.tab.act{color:#0f2540;font-weight:700}
+thead th{background:#16345a;color:#fff;border-bottom-color:#16345a}
+thead th.s:hover{color:#9ccbff}
+tbody tr{border-bottom-color:#e6edf5}
+tbody tr:hover{background:#f2f7fd}
+.rw-e td{color:#b71c1c;background:#fdf3f2}.rw-d td{color:#a85a00;background:#fffaf0}
+.rw-p td{color:#1b4b82;background:#f2f7fd}.rw-c td{color:#6b3fa0;background:#f8f4fd;font-style:italic}
+.gt{background:#eef3fa}
+.note{background:#eef5fd}.note-ok{background:#eef8f0}.note-err{background:#fdf1f0}

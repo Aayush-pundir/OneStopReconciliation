@@ -1,0 +1,16 @@
+/* Dashboard theme for RuPay. Styling only. */
+:root{--bg:#eef2f7;--surf:#fff;--bdr:#d5deea;--acc:#1b4b82;--acc2:#153c6a;--txt:#1a2433;--mut:#5a6b82;
+  --grn:#1e7e34;--red:#c62828;--ylw:#b26a00;--r:10px}
+body{padding:0 0 28px}
+.app{max-width:none;margin:0}
+header{background:#0f2540;margin:0 0 20px;padding:14px 24px}
+h1{color:#fff;font-size:16px}h1 span{color:#4da3ff}
+.tag{color:#9db6d3;font-size:11px}
+.logo{background:#1b4b82;width:36px;height:36px}
+.card{max-width:860px;margin-left:auto;margin-right:auto;box-shadow:0 1px 3px rgba(15,37,64,.08)}
+.drop:hover,.drop.over{border-color:#4da3ff;background:#e3eefb}
+.btn-p{background:#1b4b82}.btn-p:hover{background:#153c6a}.btn-p:disabled{background:#9db6d3}
+.pfill{background:#1b4b82}
+.logbox{background:#0f2540}
+.tip{background:#eef2f7;border-left-color:#4da3ff}
+.a-ok{background:#e6f4ea;border-color:#b7dfc1}

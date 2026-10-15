@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the single-file dashboard: src/shell.html + src/help.js + src/modules/*.html -> index.html
+"""Build the single-file dashboard: src/shell.html + src/help.js + src/modules/*.html (+ src/themes/*.css) -> index.html
 
 Each module is embedded byte-for-byte (nothing is rewritten); it is only escaped so it can live
 inside a <script type="application/json"> block. To add a reconciliation, drop its HTML in
@@ -7,6 +7,7 @@ src/modules/ and add an entry to MODULES below.
 """
 import json
 import pathlib
+import re
 
 ROOT = pathlib.Path(__file__).parent
 
@@ -17,6 +18,16 @@ MODULES = [
     ("rupay",  "RuPay",  "DSR × Bank",          "rupay.html"),
     ("upi",    "UPI",    "NTSL × Bank",         "upi.html"),
 ]
+
+
+def themed(mid: str, html: str) -> str:
+    """Append the dashboard theme (styling only) to the embedded copy of a tool, just before </head>.
+    The files in src/modules/ are never modified; logic and rules are untouched."""
+    css = (ROOT / "src" / "themes" / f"{mid}.css").read_text(encoding="utf-8")
+    pat = re.compile(r"^</head>(?=\s*<body)", re.I | re.M)
+    assert len(pat.findall(html)) == 1, f"{mid}: could not find the document </head>"
+    block = '<style id="osr-theme">\n' + css + "</style>\n"
+    return pat.sub(lambda m: block + m.group(0), html, count=1)
 
 
 def embed(html: str) -> str:
@@ -30,7 +41,7 @@ def main() -> None:
     mods = []
     for mid, label, desc, fname in MODULES:
         html = (ROOT / "src" / "modules" / fname).read_text(encoding="utf-8")
-        mods.append({"id": mid, "label": label, "desc": desc, "html": html})
+        mods.append({"id": mid, "label": label, "desc": desc, "html": themed(mid, html)})
     help_js = (ROOT / "src" / "help.js").read_text(encoding="utf-8")
     assert "</script" not in help_js.lower()
     assert shell.count("/*__HELP__*/") == 1

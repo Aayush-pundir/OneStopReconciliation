@@ -1,0 +1,23 @@
+/* Dashboard theme for UPI. Styling only. */
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef2f7;color:#1a2433}
+.app-header{background:#0f2540;box-shadow:none}
+.app-header .sub{color:#9db6d3;opacity:1}
+.badge{background:rgba(255,255,255,.12);color:#cfe0f5;border:1px solid rgba(255,255,255,.2)}
+.card{border-radius:10px;box-shadow:0 1px 3px rgba(15,37,64,.08);border:1px solid #d5deea}
+.card-title{color:#0f2540;border-bottom-color:#dbe5f2}
+.upload-area{border-color:#c5d3e6;background:#f4f8fd}
+.upload-area:hover{border-color:#4da3ff;background:#e3eefb}
+.upload-area.has{border-color:#1e7e34;background:#f1faf3}
+.upload-status{color:#1e7e34}
+.alt-link a{color:#1b4b82}
+.btn-run{background:#1b4b82;border-radius:8px}
+.btn-run:hover:not(:disabled){background:#153c6a;opacity:1}
+.progress-bar{background:#dbe5f2}
+.progress-fill{background:#1b4b82}
+.stat-card{background:#f4f8fd;border-color:#d5deea;border-radius:8px}
+.stat-value{color:#1b4b82}
+.stat-card.green .stat-value{color:#1e7e34}
+.disc-table th{background:#16345a}
+.log-box{background:#0f2540}
+.btn-dl{background:#1e7e34;border-radius:8px}
+.btn-dl:hover:not(:disabled){background:#17652a;opacity:1}

@@ -1,0 +1,25 @@
+/* Dashboard theme for FASTag. Appended after the tool's own styles; styling only, no logic. */
+:root{--bg:#eef2f7;--surface:#fff;--border:#d5deea;--navy:#1b4b82;--navy-dark:#0f2540;--navy-light:#e3eefb;
+  --green:#1e7e34;--green-bg:#e6f4ea;--red:#c62828;--text:#1a2433;--muted:#5a6b82}
+body{background:var(--bg);color:var(--text)}
+.app-header{background:#0f2540;box-shadow:none}
+.app-header .sub{color:#9db6d3}
+.badge,.badge.v2{background:rgba(255,255,255,.12);color:#cfe0f5;border:1px solid rgba(255,255,255,.2)}
+.drop-zone,.card,.tab-content,.parsed-preview{border-radius:10px}
+.drop-zone:hover,.drop-zone.dragover{border-color:#4da3ff;background:#e3eefb}
+.drop-zone.loaded{border-color:var(--green);background:#f1faf3}
+.run-btn,.dl-btn{background:#1b4b82;border-radius:8px}
+.run-btn:hover:not(:disabled),.dl-btn:hover{background:#153c6a}
+.dl-btn.green{background:#1e7e34}.dl-btn.green:hover{background:#17652a}
+.progress-fill{background:#1b4b82}
+.tab-bar{border-bottom-color:#1b4b82}
+.tab-btn{background:#e3eefb;color:#1b4b82}
+.tab-btn.active{background:#1b4b82;color:#fff}
+thead tr,tfoot tr,.exc-table th{background:#16345a}
+thead th{border-right-color:#2a4a75}
+.exc-table th{color:#fff;border-color:#2a4a75}
+.card{border-left-color:#1b4b82}
+.card-value{color:#1b4b82}
+.fee-box{background:#e3eefb;border-color:#b9d3f1}
+.fee-box h3{color:#0f2540}
+.fee-row{border-bottom-color:#cfe0f5}
