@@ -32,13 +32,40 @@ body{font-family:var(--font);background:var(--bg);display:flex;flex-direction:ro
 .tab[aria-selected="true"] .d{opacity:.7}
 
 .stage{flex:1;position:relative;min-width:0}
-.pane{position:absolute;inset:0;display:none;background:var(--bg)}
-.pane.active{display:block}
-.pane iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+.pane{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.pane.active{display:flex}
+.pane iframe{flex:1;min-height:0;width:100%;border:0;display:block;background:var(--bg)}
+.pbar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:6px 14px;background:#fff;border-bottom:1px solid #d5deea}
+.pbar .pt{font-size:12px;font-weight:700;color:#0f2540;margin-right:auto}
+.ib{appearance:none;display:inline-flex;align-items:center;gap:6px;border:1px solid #c5d3e6;background:#f4f8fd;color:#1b4b82;
+  font:inherit;font-size:12px;font-weight:600;padding:5px 11px 5px 8px;border-radius:16px;cursor:pointer;transition:background .15s,border-color .15s}
+.ib:hover{background:#e3eefb;border-color:#4da3ff}
+.ib:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ib svg{width:16px;height:16px;flex-shrink:0}
 .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#5a6a7a;font-size:13px;pointer-events:none}
 
+dialog.help{margin:auto;border:none;border-radius:12px;padding:0;width:min(760px,94vw);max-height:86vh;color:#1a2433;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden}
+dialog.help[open]{display:flex;flex-direction:column}
+dialog.help::backdrop{background:rgba(10,25,45,.55)}
+.hh{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--bar);color:#fff}
+.hh h2{font-size:15px;font-weight:700;margin-right:auto}
+.hh .x{appearance:none;border:none;background:transparent;color:#cfe0f5;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.hh .x:hover{color:#fff}
+.hb{padding:6px 20px 20px;overflow-y:auto;font-size:13px;line-height:1.55}
+.hb h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#1b4b82;margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid #dbe5f2}
+.hb p{margin:6px 0}
+.hb ul,.hb ol{margin:6px 0 6px 20px}
+.hb li{margin:3px 0}
+.hb code{background:#eef2f7;border:1px solid #dbe3ee;border-radius:4px;padding:0 5px;font-size:11.5px;font-family:Consolas,'Courier New',monospace}
+.hb table.rt{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}
+.hb table.rt th,.hb table.rt td{border:1px solid #d5deea;padding:6px 9px;text-align:left;vertical-align:top}
+.hb table.rt th{background:#eef3fa;color:#0f2540}
+
 @media(max-width:700px){
+  .ib span{display:none}
+  .ib{padding:6px}
   .side{width:64px}
   .brand{padding:12px 6px;text-align:center}
   .brand h1{font-size:10px;letter-spacing:0}
@@ -61,9 +88,16 @@ body{font-family:var(--font);background:var(--bg);display:flex;flex-direction:ro
 
 <main class="stage" id="stage"></main>
 
+<dialog class="help" id="help" aria-labelledby="help-title">
+  <div class="hh"><h2 id="help-title"></h2><button class="x" type="button" id="help-x" aria-label="Close">&times;</button></div>
+  <div class="hb" id="help-body"></div>
+</dialog>
+
 <!-- Each reconciliation tool is embedded UNMODIFIED as a JSON string and mounted in its own iframe.
      Isolation guarantees the tool's logic, rules, styles and file handling behave exactly as standalone. -->
 <script id="modules-data" type="application/json">/*__MODULES__*/</script>
+
+<script>/*__HELP__*/</script>
 
 <script>
 (function(){
@@ -96,9 +130,40 @@ body{font-family:var(--font);background:var(--bg);display:flex;flex-direction:ro
 
   // The iframe is created the first time its tab is opened, then kept alive (hidden, not destroyed)
   // so uploaded files and results survive switching between tabs.
+  var ICON_RULES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="7.5" r=".6" fill="currentColor"/></svg>';
+  var ICON_HOW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>';
+
+  var dlg = document.getElementById('help'), dTitle = document.getElementById('help-title'), dBody = document.getElementById('help-body');
+  function esc(t){ return String(t).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+  function openHelp(m, kind){
+    var sections = (HELP[m.id] || {})[kind] || [];
+    dTitle.textContent = m.label + ' — ' + (kind === 'rules' ? 'Rules & parameters' : 'How to use');
+    dBody.innerHTML = sections.map(function(x){ return '<h3>' + esc(x[0]) + '</h3>' + x[1]; }).join('') || '<p>No help available.</p>';
+    dBody.scrollTop = 0;
+    if (!dlg.open) dlg.showModal();
+  }
+  document.getElementById('help-x').addEventListener('click', function(){ dlg.close(); });
+  dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });  // click on backdrop
+
+  function toolbar(m){
+    var bar = document.createElement('div'); bar.className = 'pbar';
+    var t = document.createElement('div'); t.className = 'pt'; t.textContent = m.label + ' Reconciliation';
+    bar.appendChild(t);
+    [['rules', ICON_RULES, 'Rules & parameters', 'Rules and parameters used by this reconciliation'],
+     ['how',   ICON_HOW,   'How to use',         'Step-by-step instructions']].forEach(function(d){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ib';
+      b.title = d[3]; b.setAttribute('aria-label', d[2] + ' — ' + m.label);
+      b.innerHTML = d[1] + '<span>' + d[2] + '</span>';
+      b.addEventListener('click', function(){ openHelp(m, d[0]); });
+      bar.appendChild(b);
+    });
+    return bar;
+  }
+
   function mount(m){
     var p = panes[m.id];
     if (p.firstChild) return;
+    p.appendChild(toolbar(m));
     var ld = document.createElement('div'); ld.className = 'loading'; ld.textContent = 'Loading ' + m.label + '…';
     p.appendChild(ld);
     var f = document.createElement('iframe');

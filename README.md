@@ -11,7 +11,8 @@ and behave identically to standalone. A tab's uploaded files and results are kep
 
 ## Layout
 - `index.html` – built single-file dashboard (generated, commit it)
-- `src/shell.html` – dashboard shell (header, tabs)
+- `src/shell.html` – dashboard shell (sidebar, per-tab toolbar, help dialog)
+- `src/help.js` – text behind each tab's **Rules & parameters** and **How to use** icons (edit here if a tool's rules change)
 - `src/modules/*.html` – the individual reconciliation tools
 - `build.py` – `python3 build.py` regenerates `index.html`
 

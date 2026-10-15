@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the single-file dashboard: src/shell.html + src/modules/*.html -> index.html
+"""Build the single-file dashboard: src/shell.html + src/help.js + src/modules/*.html -> index.html
 
 Each module is embedded byte-for-byte (nothing is rewritten); it is only escaped so it can live
 inside a <script type="application/json"> block. To add a reconciliation, drop its HTML in
@@ -31,6 +31,10 @@ def main() -> None:
     for mid, label, desc, fname in MODULES:
         html = (ROOT / "src" / "modules" / fname).read_text(encoding="utf-8")
         mods.append({"id": mid, "label": label, "desc": desc, "html": html})
+    help_js = (ROOT / "src" / "help.js").read_text(encoding="utf-8")
+    assert "</script" not in help_js.lower()
+    assert shell.count("/*__HELP__*/") == 1
+    shell = shell.replace("/*__HELP__*/", help_js)
     marker = "/*__MODULES__*/"
     assert shell.count(marker) == 1
     payload = "[" + ",".join(
