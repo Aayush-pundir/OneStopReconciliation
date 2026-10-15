@@ -364,7 +364,7 @@ upi: {
     });
     mount(m);
     document.title = m.label + ' · One Stop Reconciliation';
-    if (push && location.hash !== '#' + m.id) history.replaceState(null,'','#' + m.id);
+    try { if (push && location.hash !== '#' + m.id) history.replaceState(null,'','#' + m.id); } catch (e) {}
   }
 
   window.addEventListener('hashchange', function(){ activate(location.hash.slice(1), false); });
