@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETC FASTag Recon Tool v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg:#f0f4f8; --surface:#fff; --border:#d1dbe8;
+    --navy:#1F4E79; --navy-dark:#0D3F6E; --navy-light:#dceefb;
+    --green:#2e7d32; --green-bg:#e8f5e9;
+    --yellow-bg:#fff9c4; --orange-bg:#ffe0b2; --grey-bg:#f5f5f5;
+    --red:#b71c1c; --text:#1a1a2e; --muted:#5a6a7a;
+    --font:'Segoe UI',system-ui,sans-serif; --mono:'Consolas','Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px}
+
+  .app-header{background:var(--navy-dark);padding:14px 24px;display:flex;align-items:center;
+    justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .app-header h1{color:#fff;font-size:16px;font-weight:700;letter-spacing:.3px}
+  .app-header .sub{color:#a8c8e8;font-size:11px;margin-top:2px}
+  .badge{background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+  .badge.v2{background:#fff9c4;color:#5d4037}
+
+  .upload-panel{max-width:900px;margin:28px auto;padding:0 16px}
+  .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+  .drop-zone{border:2px dashed var(--border);border-radius:10px;padding:28px 20px;
+    text-align:center;background:var(--surface);cursor:pointer;
+    transition:border-color .2s,background .2s;position:relative}
+  .drop-zone:hover,.drop-zone.dragover{border-color:var(--navy);background:var(--navy-light)}
+  .drop-zone.loaded{border-color:var(--green);background:#f1fdf2}
+  .drop-zone.error{border-color:var(--red);background:#fff5f5}
+  .drop-icon{font-size:30px;margin-bottom:8px}
+  .drop-label{font-weight:700;color:var(--navy);font-size:13px}
+  .drop-hint{color:var(--muted);font-size:11px;margin-top:4px;line-height:1.5}
+  .drop-status{font-size:11px;margin-top:8px;color:var(--green);font-weight:600;line-height:1.6}
+  .drop-status.err{color:var(--red)}
+  input[type=file]{display:none}
+
+  .file-list{margin-top:10px;max-height:120px;overflow-y:auto;text-align:left;
+    background:#f8fafb;border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+  .file-item{font-size:10px;font-family:var(--mono);color:var(--muted);padding:1px 0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .file-item.ok::before{content:'✓ ';color:var(--green)}
+  .file-item.skip::before{content:'— ';color:#aaa}
+
+  .run-btn{display:block;width:100%;margin-top:16px;background:var(--navy);color:#fff;
+    border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;
+    cursor:pointer;transition:background .2s}
+  .run-btn:hover:not(:disabled){background:#163a5f}
+  .run-btn:disabled{background:#9ab0c8;cursor:not-allowed}
+
+  .progress-bar{display:none;margin-top:12px;background:#e0e8f0;border-radius:4px;height:6px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--navy);width:0%;transition:width .2s}
+  .progress-text{font-size:11px;color:var(--muted);text-align:center;margin-top:4px}
+
+  /* results */
+  .results{max-width:1240px;margin:0 auto 32px;padding:0 16px;display:none}
+  .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--navy);margin-bottom:0}
+  .tab-btn{padding:9px 20px;font-size:12px;font-weight:700;cursor:pointer;border:none;
+    background:#dce8f5;color:var(--navy);border-radius:6px 6px 0 0;margin-right:3px;
+    transition:background .15s}
+  .tab-btn.active{background:var(--navy);color:#fff}
+  .tab-content{background:var(--surface);border:1px solid var(--border);
+    border-top:none;border-radius:0 0 8px 8px;padding:0;overflow:hidden}
+  .tab-pane{display:none;padding:16px}
+  .tab-pane.active{display:block}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:14px 16px;border-left:4px solid var(--navy)}
+  .card.green{border-left-color:var(--green)}.card.orange{border-left-color:#e65100}.card.red{border-left-color:var(--red)}
+  .card-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .card-value{font-size:22px;font-weight:800;color:var(--navy);margin-top:4px}
+  .card.green .card-value{color:var(--green)}.card-sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+  .findings-box{background:#fffde7;border:1px solid #f9a825;border-radius:8px;padding:14px 16px;margin-top:16px}
+  .findings-box h3{font-size:12px;font-weight:700;color:#5d4037;margin-bottom:10px}
+  .finding{font-size:12px;color:var(--text);padding:5px 0;border-bottom:1px solid #fdeea3;line-height:1.5}
+  .finding:last-child{border-bottom:none}
+
+  .fee-box{background:var(--navy-light);border:1px solid #90caf9;border-radius:8px;padding:14px 16px;margin-top:16px}
+  .fee-box h3{font-size:12px;font-weight:700;color:var(--navy-dark);margin-bottom:10px}
+  .fee-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #bbdefb}
+  .fee-row:last-child{border-bottom:none;font-weight:700}
+  .fee-row .lbl{color:var(--muted)}.fee-row .val{font-family:var(--mono);font-weight:600}
+
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  thead tr{background:var(--navy);color:#fff}
+  thead th{padding:8px 10px;text-align:right;white-space:nowrap;font-size:10px;
+    font-weight:700;letter-spacing:.3px;border-right:1px solid #2d6faa}
+  thead th.ctr{text-align:center}
+  tbody tr{border-bottom:1px solid #e8eef5;transition:background .1s}
+  tbody tr:hover{filter:brightness(.97)}
+  tbody td{padding:6px 10px;text-align:right;white-space:nowrap;font-family:var(--mono);font-size:11px}
+  tbody td.txt{font-family:var(--font);text-align:center;font-size:11px}
+  tbody td.status{font-family:var(--font);text-align:left;font-weight:600;font-size:10.5px}
+  tfoot tr{background:var(--navy);color:#fff;font-weight:700}
+  tfoot td{padding:8px 10px;text-align:right;font-family:var(--mono)}
+  tfoot td.txt{font-family:var(--font);text-align:center}
+
+  .s-matched{background:var(--green-bg)}.s-reclass{background:var(--yellow-bg)}
+  .s-pending{background:var(--orange-bg)}.s-zero{background:var(--grey-bg)}
+  .status-pill{display:inline-block;padding:2px 8px;border-radius:10px;
+    font-size:10px;font-weight:700;white-space:nowrap}
+  .pill-matched{background:#c8e6c9;color:#1b5e20}.pill-reclass{background:#fff176;color:#5d4037}
+  .pill-pending{background:#ffcc80;color:#5d4037}.pill-zero{background:#eee;color:#757575}
+  .pill-error{background:#ffcdd2;color:#b71c1c}
+
+  .exc-section{margin-bottom:20px}
+  .exc-hdr{background:var(--red);color:#fff;padding:8px 14px;font-weight:700;
+    font-size:12px;border-radius:6px 6px 0 0}
+  .exc-hdr.orange{background:#e65100}.exc-hdr.grey{background:#616161}
+  .exc-table{width:100%;border-collapse:collapse;font-size:11px}
+  .exc-table th{padding:6px 10px;text-align:right;background:#f5f5f5;
+    border:1px solid var(--border);font-size:10px}
+  .exc-table th.ctr{text-align:center}
+  .exc-table td{padding:5px 10px;border:1px solid var(--border);text-align:right;font-family:var(--mono)}
+  .exc-table td.txt{font-family:var(--font);text-align:left;font-size:10.5px}
+  .exc-table td.ctr{text-align:center}
+
+  .dl-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .dl-btn{background:var(--navy);color:#fff;border:none;border-radius:6px;
+    padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;transition:background .2s}
+  .dl-btn:hover{background:#163a5f}.dl-btn.green{background:var(--green)}
+  .dl-btn.green:hover{background:#1b5e20}
+  .recon-date{font-size:11px;color:var(--muted);margin-left:auto}
+
+  .err-box{background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;
+    padding:12px 16px;color:#c62828;font-size:12px;margin-top:12px}
+  .warn-box{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
+    padding:10px 14px;color:#5d4037;font-size:12px;margin-top:8px}
+
+  .parsed-preview{background:#f8fafb;border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;margin-top:12px;font-size:11px}
+  .parsed-preview h4{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px}
+  .preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px}
+  .preview-item{font-family:var(--mono);color:var(--muted);padding:2px 0}
+  .preview-item span{color:var(--text);font-weight:600}
+
+  @media(max-width:640px){.upload-grid{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>⚡ NETC FASTag Recon Tool</h1>
+    <div class="sub">Individual DSR Folder × Bank Statement — Offline Browser Tool v2</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="badge v2">v2 – FOLDER INPUT</span>
+    <span class="badge">OFFLINE</span>
+  </div>
+</div>
+
+<div class="upload-panel">
+  <div class="upload-grid">
+
+    <!-- DSR FOLDER -->
+    <div>
+      <div class="drop-zone" id="dsr-zone"
+           onclick="document.getElementById('dsr-input').click()"
+           ondragover="handleDrag(event,'dsr-zone')"
+           ondragleave="clearDrag('dsr-zone')"
+           ondrop="handleDrop(event,'dsr')">
+        <div class="drop-icon">📁</div>
+        <div class="drop-label">DSR Folder (Entire Month)</div>
+        <div class="drop-hint">Click to select folder<br>All .xlsx/.xls inside will be read<br>Each file = one DSR cycle</div>
+        <div class="drop-status" id="dsr-status"></div>
+        <div class="file-list" id="dsr-file-list" style="display:none"></div>
+      </div>
+      <input type="file" id="dsr-input" accept=".xlsx,.xls" webkitdirectory multiple
+             onchange="loadDSRFolder(event)">
+    </div>
+
+    <!-- BANK -->
+    <div>
+      <div class="drop-zone" id="bank-zone"
+           onclick="document.getElementById('bank-input').click()"
+           ondragover="handleDrag(event,'bank-zone')"
+           ondragleave="clearDrag('bank-zone')"
+           ondrop="handleDrop(event,'bank')">
+        <div class="drop-icon">🏦</div>
+        <div class="drop-label">Bank Statement</div>
+        <div class="drop-hint">Bank_Fastag.xlsx<br>Drop here or click to browse</div>
+        <div class="drop-status" id="bank-status"></div>
+      </div>
+      <input type="file" id="bank-input" accept=".xlsx,.xls"
+             onchange="loadBankFile(event)">
+    </div>
+
+  </div>
+
+  <div class="progress-bar" id="progress-bar">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="progress-text" id="progress-text"></div>
+
+  <div id="dsr-preview"></div>
+
+  <button class="run-btn" id="run-btn" onclick="runRecon()" disabled>
+    Run Reconciliation
+  </button>
+  <div id="err-area"></div>
+</div>
+
+<div class="results" id="results">
+  <div class="dl-bar">
+    <button class="dl-btn green" onclick="downloadExcel()">⬇ Download Recon Excel</button>
+    <span class="recon-date" id="recon-ts"></span>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('summary')">Summary</button>
+    <button class="tab-btn" onclick="showTab('detail')">Recon Detail</button>
+    <button class="tab-btn" onclick="showTab('exceptions')">Exceptions</button>
+  </div>
+  <div class="tab-content">
+    <div class="tab-pane active" id="tab-summary"></div>
+    <div class="tab-pane" id="tab-detail"></div>
+    <div class="tab-pane" id="tab-exceptions"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+const state = {
+  dsrBlocks: null,   // parsed DSR blocks [{date,cycle,cnt,txnAmt,taxable,gst,svcTotal,net}]
+  bankWB: null,
+  dsrFileCount: 0,
+  dsrMonth: ''
+};
+
+// ══════════════════════════════════════════════════════
+// DRAG / DROP HELPERS
+// ══════════════════════════════════════════════════════
+function handleDrag(e, zoneId) { e.preventDefault(); document.getElementById(zoneId).classList.add('dragover'); }
+function clearDrag(zoneId) { document.getElementById(zoneId).classList.remove('dragover'); }
+function handleDrop(e, type) {
+  e.preventDefault(); clearDrag(type+'-zone');
+  if (type === 'dsr') {
+    // Folder drop via dataTransfer.items
+    const items = e.dataTransfer.items;
+    const files = [];
+    for (let i=0; i<items.length; i++) {
+      const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+      if (entry && entry.isDirectory) {
+        // Recurse folder
+        readDirEntries(entry, files, () => processDSRFiles(files));
+        return;
+      }
+    }
+    // Flat file drop
+    for (let i=0; i<e.dataTransfer.files.length; i++) files.push(e.dataTransfer.files[i]);
+    processDSRFiles(files);
+  } else {
+    processBankFile(e.dataTransfer.files[0]);
+  }
+}
+
+function readDirEntries(dirEntry, files, done) {
+  const reader = dirEntry.createReader();
+  reader.readEntries(entries => {
+    let pending = 0;
+    for (const entry of entries) {
+      if (entry.isFile && /\.(xlsx|xls)$/i.test(entry.name)) {
+        pending++;
+        entry.file(f => { files.push(f); if (--pending === 0) done(); });
+      }
+    }
+    if (pending === 0) done();
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// DSR FOLDER LOADER
+// ══════════════════════════════════════════════════════
+function loadDSRFolder(e) {
+  const files = Array.from(e.target.files).filter(f => /\.(xlsx|xls)$/i.test(f.name));
+  processDSRFiles(files);
+}
+
+async function processDSRFiles(files) {
+  if (!files.length) { showError('No .xlsx/.xls files found.'); return; }
+
+  // Sort by filename — preserves NPCI cycle order within same date
+  files.sort((a,b) => a.name.localeCompare(b.name));
+
+  const zone = document.getElementById('dsr-zone');
+  const statusEl = document.getElementById('dsr-status');
+  const listEl = document.getElementById('dsr-file-list');
+  const previewEl = document.getElementById('dsr-preview');
+  const progBar = document.getElementById('progress-bar');
+  const progFill = document.getElementById('progress-fill');
+  const progText = document.getElementById('progress-text');
+
+  zone.classList.remove('loaded','error');
+  listEl.style.display = 'block';
+  listEl.innerHTML = '';
+  progBar.style.display = 'block';
+  statusEl.className = 'drop-status';
+  statusEl.textContent = `Reading ${files.length} files…`;
+
+  const allBlocks = [];
+  const cycleNum = {};
+  const fileLog = [];
+  let parsed = 0, skipped = 0;
+
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi];
+    progFill.style.width = Math.round((fi/files.length)*100) + '%';
+    progText.textContent = `Parsing ${fi+1}/${files.length}: ${file.name}`;
+
+    // small yield to keep UI responsive
+    await new Promise(r => setTimeout(r, 0));
+
+    try {
+      const ab = await readFileAsync(file);
+      const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+      const block = parseSingleDSR(wb, file.name, cycleNum);
+      if (block) {
+        allBlocks.push(block);
+        fileLog.push({ name: file.name, ok: true, date: block.date, cycle: block.cycle });
+        parsed++;
+      } else {
+        fileLog.push({ name: file.name, ok: false });
+        skipped++;
+      }
+    } catch(err) {
+      fileLog.push({ name: file.name, ok: false, err: err.message });
+      skipped++;
+    }
+  }
+
+  progFill.style.width = '100%';
+  progText.textContent = '';
+  setTimeout(() => { progBar.style.display = 'none'; }, 600);
+
+  // Render file list
+  listEl.innerHTML = fileLog.map(f =>
+    `<div class="file-item ${f.ok?'ok':'skip'}">${f.name}${f.ok?' → '+f.date+' Cy'+f.cycle:' (skipped)'}</div>`
+  ).join('');
+
+  if (!allBlocks.length) {
+    zone.classList.add('error');
+    statusEl.className = 'drop-status err';
+    statusEl.textContent = '✗ No valid DSR files parsed. Check file format.';
+    return;
+  }
+
+  state.dsrBlocks = allBlocks;
+  state.dsrFileCount = parsed;
+
+  // Determine month label
+  const dates = [...new Set(allBlocks.map(b => b.date))].sort();
+  state.dsrMonth = dates[0]?.substring(3) || '';  // MM-YYYY from first date
+
+  zone.classList.add('loaded');
+  statusEl.className = 'drop-status';
+  statusEl.textContent = `✓ ${parsed} DSR files parsed | ${[...new Set(allBlocks.map(b=>b.date))].length} dates | ${allBlocks.length} cycles`;
+  if (skipped) statusEl.textContent += ` | ${skipped} skipped`;
+
+  // Show parsed preview
+  const dateGroups = {};
+  for (const b of allBlocks) dateGroups[b.date] = (dateGroups[b.date]||0)+1;
+  const previewItems = Object.entries(dateGroups).slice(0,12)
+    .map(([d,c]) => `<div class="preview-item">${d}: <span>${c} cycle${c>1?'s':''}</span></div>`).join('');
+  previewEl.innerHTML = `<div class="parsed-preview">
+    <h4>DSR Parse Preview (${Object.keys(dateGroups).length} dates)</h4>
+    <div class="preview-grid">${previewItems}${Object.keys(dateGroups).length>12?`<div class="preview-item" style="color:var(--muted)">…and ${Object.keys(dateGroups).length-12} more</div>`:''}</div>
+  </div>`;
+
+  checkReady();
+}
+
+// ══════════════════════════════════════════════════════
+// SINGLE DSR FILE PARSER
+// ══════════════════════════════════════════════════════
+function parseSingleDSR(wb, filename, cycleNum) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  // Find header row
+  let hdrIdx = -1;
+  for (let i=0; i<Math.min(raw.length,5); i++) {
+    if (raw[i][0] === 'Settlement Date') { hdrIdx = i; break; }
+  }
+  if (hdrIdx === -1) return null;  // not a DSR file
+
+  // First data row after header = has the date
+  let blockDate = null;
+  for (let i = hdrIdx+1; i < raw.length; i++) {
+    const v = raw[i][0];
+    if (v && v !== 'Settlement Date' && String(v).trim()) {
+      blockDate = fmtDate(v); break;
+    }
+  }
+  if (!blockDate) return null;
+
+  // Assign cycle number by date
+  cycleNum[blockDate] = (cycleNum[blockDate] || 0) + 1;
+  const cn = cycleNum[blockDate];
+
+  // Parse block
+  let grandTotal = null, gstAmt = 0, txnCount = 0, txnAmt = 0;
+
+  for (let k = hdrIdx+1; k < raw.length; k++) {
+    const r = raw[k];
+    if (!r) continue;
+
+    // INWARD GST sub-row: col F (index 5) = 'INWARD GST'
+    if (String(r[5]||'').trim() === 'INWARD GST') {
+      gstAmt = parseFloat(r[18]||0);
+    }
+
+    // Grand total: col B (index 1) = 'Total' AND col E (index 4) = 'Total'
+    if (r[1]==='Total' && r[4]==='Total') {
+      grandTotal = r;
+    }
+
+    // DEBIT + TOLL/PARKING: col I=8, col J=9, col K=10, col M=12
+    if (r[8]==='DEBIT' && (r[9]==='TOLL' || r[9]==='PARKING')) {
+      txnCount += (parseInt(r[10])||0);
+      txnAmt   += (parseFloat(r[12])||0);
+    }
+  }
+
+  if (!grandTotal) return null;
+
+  const svcTotal = parseFloat(grandTotal[18]||0);
+  const taxable  = round2(svcTotal - gstAmt);
+  const gst      = round2(gstAmt);
+  const net      = round2(parseFloat(grandTotal[27]||0));
+
+  return {
+    date: blockDate, cycle: cn, filename,
+    cnt: txnCount, txnAmt: round2(txnAmt),
+    taxable, gst, svcTotal: round2(svcTotal), net
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// BANK FILE LOADER
+// ══════════════════════════════════════════════════════
+function loadBankFile(e) { processBankFile(e.target.files[0]); }
+
+function processBankFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      state.bankWB = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+      const zone = document.getElementById('bank-zone');
+      zone.classList.add('loaded');
+      document.getElementById('bank-status').textContent = '✓ ' + file.name;
+      checkReady();
+    } catch(err) { showError('Bank file error: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════════════
+// BANK PARSER
+// ══════════════════════════════════════════════════════
+function parseBank(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  const entries = [];
+  for (let i=1; i<raw.length; i++) {
+    const row = raw[i];
+    const narr = String(row[1]||'');
+    if (!narr.includes('_00')) continue;
+    const parts = narr.split('_00');
+    if (parts.length < 2 || parts[1].length < 10) continue;
+    const code = parts[1];
+    const dateStr = code.substring(0,8);
+    const cycle = parseInt(code.substring(8));
+    const dd = dateStr.substring(6,8)+'-'+dateStr.substring(4,6)+'-'+dateStr.substring(0,4);
+    const payDate = fmtDate(row[0]);
+    const debit = parseFloat(row[5]||0);
+    entries.push({ key: dd+'|'+cycle, dsrDate: dd, cycle, payDate, debit, narr });
+  }
+  return entries;
+}
+
+// ══════════════════════════════════════════════════════
+// RECON CORE
+// ══════════════════════════════════════════════════════
+function runRecon() {
+  document.getElementById('err-area').innerHTML = '';
+  const blocks = state.dsrBlocks;
+  let bankEntries;
+  try { bankEntries = parseBank(state.bankWB); }
+  catch(e) { showError('Bank parse error: ' + e.message); return; }
+
+  if (!blocks?.length) { showError('No DSR blocks loaded.'); return; }
+  if (!bankEntries.length) { showError('No bank entries found.'); return; }
+
+  // Bank dict: last-write-wins (larger amounts overwrite for same key = correct)
+  const bankDict = {};
+  for (const b of bankEntries) bankDict[b.key] = b;
+
+  // Reclassified entries: bank key=firstDate but amount matches secondDate DSR
+  // Generic: for each DSR block with no bank key match, try amount-match against
+  // all bank entries of the same cycle number
+  const reclassMap = {};
+  const matchedKeys = new Set();
+
+  // First pass: direct key matches
+  for (const blk of blocks) {
+    const key = blk.date+'|'+blk.cycle;
+    if (bankDict[key]) matchedKeys.add(key);
+  }
+
+  // Second pass: amount-based match for unmatched non-zero DSR blocks
+  // Find bank entries whose key is not directly matched to any DSR
+  const bankUsed = new Set(Array.from(matchedKeys));
+  for (const blk of blocks) {
+    const key = blk.date+'|'+blk.cycle;
+    if (matchedKeys.has(key) || blk.net === 0) continue;
+    const netAbs = Math.abs(blk.net);
+    // Look for bank entry with same cycle, matching amount, not yet used
+    for (const b of bankEntries) {
+      if (b.cycle === blk.cycle && !bankUsed.has(b.key) && Math.abs(round2(b.debit - netAbs)) < 0.01) {
+        reclassMap[key] = { ...b, reclassNote: `Bank narrative ${b.narr} → DSR date ${blk.date}` };
+        bankUsed.add(b.key);
+        break;
+      }
+    }
+  }
+
+  // Build recon rows
+  const reconRows = [];
+  for (const blk of blocks) {
+    const key = blk.date+'|'+blk.cycle;
+    const netAbs = Math.abs(blk.net||0);
+    let bankEntry=null, diff=null, status, rowClass;
+
+    if (bankDict[key]) {
+      bankEntry = bankDict[key];
+      diff = round2(bankEntry.debit - netAbs);
+      if (blk.net === 0)           { status='Zero DSR – No Debit';        rowClass='s-zero'; }
+      else if (Math.abs(diff)<0.01){ status='Matched';                    rowClass='s-matched'; }
+      else                          { status='Amt Diff ₹'+diff.toFixed(2); rowClass='s-reclass'; }
+    } else if (reclassMap[key]) {
+      bankEntry = reclassMap[key];
+      diff = round2(bankEntry.debit - netAbs);
+      status = 'Matched – Narrative Mismatch*'; rowClass='s-reclass';
+    } else if (blk.net === 0) {
+      status='Zero DSR – No Debit'; rowClass='s-zero';
+    } else {
+      // Check if last date of loaded data
+      const dates = [...new Set(blocks.map(b=>b.date))].sort();
+      const isLastDate = blk.date === dates[dates.length-1];
+      if (isLastDate) { status='Pending – Next Month Debit'; rowClass='s-pending'; }
+      else            { status='Unmatched – Investigate';    rowClass='s-error'; }
+    }
+
+    reconRows.push({ ...blk, bankEntry, diff, status, rowClass });
+  }
+
+  renderSummary(reconRows, bankEntries);
+  renderDetail(reconRows);
+  renderExceptions(reconRows);
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('recon-ts').textContent =
+    'Recon run: ' + new Date().toLocaleString('en-IN') + ' | ' + blocks.length + ' DSR cycles from ' + state.dsrFileCount + ' files';
+  window._reconRows = reconRows;
+  window._bankEntries = bankEntries;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER SUMMARY
+// ══════════════════════════════════════════════════════
+function renderSummary(rows, bankEntries) {
+  const matched   = rows.filter(r=>r.status==='Matched').length;
+  const reclass   = rows.filter(r=>r.status.includes('Narrative')).length;
+  const pending   = rows.filter(r=>r.status.includes('Pending')).length;
+  const zero      = rows.filter(r=>r.status.includes('Zero')).length;
+  const unmatched = rows.filter(r=>r.status.includes('Unmatched')).length;
+
+  const totalTxnAmt  = round2(rows.reduce((s,r)=>s+r.txnAmt,0));
+  const totalTaxable = round2(rows.reduce((s,r)=>s+r.taxable,0));
+  const totalGst     = round2(rows.reduce((s,r)=>s+r.gst,0));
+  const totalSvc     = round2(rows.reduce((s,r)=>s+r.svcTotal,0));
+  const totalNetAbs  = round2(rows.reduce((s,r)=>s+Math.abs(r.net||0),0));
+  const bankTotal    = round2(bankEntries.reduce((s,b)=>s+b.debit,0));
+  const pendingAmt   = round2(rows.filter(r=>r.status.includes('Pending')).reduce((s,r)=>s+Math.abs(r.net||0),0));
+  const diff         = round2(bankTotal + pendingAmt - totalNetAbs);
+
+  document.getElementById('tab-summary').innerHTML = `
+    <div class="summary-grid">
+      <div class="card">
+        <div class="card-label">DSR Cycles Loaded</div>
+        <div class="card-value">${rows.length}</div>
+        <div class="card-sub">From ${state.dsrFileCount} files | Zero net: ${zero}</div>
+      </div>
+      <div class="card green">
+        <div class="card-label">Matched</div>
+        <div class="card-value">${matched+reclass}</div>
+        <div class="card-sub">Exact: ${matched} | Narrative mismatch: ${reclass}</div>
+      </div>
+      <div class="card orange">
+        <div class="card-label">Pending / Exceptions</div>
+        <div class="card-value">${pending+unmatched}</div>
+        <div class="card-sub">Next month: ${pending} | Unmatched: ${unmatched}</div>
+      </div>
+      <div class="card ${Math.abs(diff)<0.05?'green':'red'}">
+        <div class="card-label">Net Difference</div>
+        <div class="card-value">${Math.abs(diff)<0.05?'₹0.00 ✓':'₹'+Math.abs(diff).toFixed(2)}</div>
+        <div class="card-sub">Bank ₹${fmt(bankTotal)} + Pending ₹${fmt(pendingAmt)}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:0">
+      <div class="fee-box">
+        <h3>Service Fee Breakdown (DSR)</h3>
+        <div class="fee-row"><span class="lbl">Total Txn Amt Dr</span><span class="val">₹${fmt(totalTxnAmt)}</span></div>
+        <div class="fee-row"><span class="lbl">Taxable Value (Svc Fee @1%)</span><span class="val">₹${fmt(totalTaxable)}</span></div>
+        <div class="fee-row"><span class="lbl">GST @18%</span><span class="val">₹${fmt(totalGst)}</span></div>
+        <div class="fee-row"><span class="lbl">Total Svc Fee incl. GST</span><span class="val">₹${fmt(totalSvc)}</span></div>
+        <div class="fee-row"><span class="lbl">Net Payable (DSR)</span><span class="val">₹${fmt(totalNetAbs)}</span></div>
+      </div>
+      <div style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:14px">
+        <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:10px">Reconciliation Bridge</div>
+        <div class="fee-row"><span class="lbl">Bank Total Debited</span><span class="val">₹${fmt(bankTotal)}</span></div>
+        <div class="fee-row"><span class="lbl">+ Pending Next Month</span><span class="val">₹${fmt(pendingAmt)}</span></div>
+        <div class="fee-row"><span class="lbl">= Total Reconciled</span><span class="val">₹${fmt(round2(bankTotal+pendingAmt))}</span></div>
+        <div class="fee-row"><span class="lbl">DSR Net Payable</span><span class="val">₹${fmt(totalNetAbs)}</span></div>
+        <div class="fee-row" style="color:${Math.abs(diff)<0.05?'#2e7d32':'#b71c1c'}">
+          <span class="lbl">Net Difference</span>
+          <span class="val">${Math.abs(diff)<0.05?'✓ NIL':'₹'+diff.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="findings-box">
+      <h3>Key Findings & Actions</h3>
+      ${buildFindings(rows,matched,reclass,pending,zero,unmatched,diff,totalTaxable,totalGst,totalSvc,pendingAmt,bankTotal,totalNetAbs)}
+    </div>`;
+}
+
+function buildFindings(rows,matched,reclass,pending,zero,unmatched,diff,taxable,gst,svc,pendingAmt,bankTotal,netAbs) {
+  const items = [];
+  if (Math.abs(diff)<0.05)
+    items.push(`✅ <b>FULL RECON ACHIEVED</b> — DSR ₹${fmt(netAbs)} = Bank ₹${fmt(bankTotal)} + Pending ₹${fmt(pendingAmt)}. Zero difference.`);
+  else
+    items.push(`🚨 <b>DIFFERENCE: ₹${diff.toFixed(2)}</b> — investigate before closing.`);
+  if (reclass>0) {
+    const amt = round2(rows.filter(r=>r.status.includes('Narrative')).reduce((s,r)=>s+Math.abs(r.net||0),0));
+    items.push(`⚠ <b>NARRATIVE MISMATCH (${reclass} entries, ₹${fmt(amt)})</b> — Amounts correct; bank narrative carries wrong DSR date. Flag to NPCI/bank for reference correction.`);
+  }
+  if (pending>0) {
+    const prows = rows.filter(r=>r.status.includes('Pending'));
+    const plist = prows.map(r=>`${r.date} Cy${r.cycle} ₹${fmt(Math.abs(r.net))}`).join(' | ');
+    items.push(`🕐 <b>PENDING NEXT MONTH (${pending} entries, ₹${fmt(pendingAmt)})</b> — ${plist}. Verify in next bank statement.`);
+  }
+  if (unmatched>0)
+    items.push(`🚨 <b>UNMATCHED DSR (${unmatched} entries)</b> — DSR records with no bank debit found. Escalate immediately.`);
+  items.push(`ℹ <b>SERVICE FEE</b> — Taxable ₹${fmt(taxable)} + GST @18% ₹${fmt(gst)} = ₹${fmt(svc)}.`);
+  items.push(`ℹ <b>ZERO CYCLES (${zero})</b> — Non-financial blocks. No debit expected. Confirmed absent from bank.`);
+  return items.map(t=>`<div class="finding">${t}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER DETAIL
+// ══════════════════════════════════════════════════════
+function renderDetail(rows) {
+  const tot = {
+    cnt: rows.reduce((s,r)=>s+r.cnt,0),
+    txnAmt: round2(rows.reduce((s,r)=>s+r.txnAmt,0)),
+    taxable: round2(rows.reduce((s,r)=>s+r.taxable,0)),
+    gst: round2(rows.reduce((s,r)=>s+r.gst,0)),
+    svc: round2(rows.reduce((s,r)=>s+r.svcTotal,0)),
+    net: round2(rows.reduce((s,r)=>s+(r.net||0),0)),
+    bank: round2(rows.filter(r=>r.bankEntry).reduce((s,r)=>s+r.bankEntry.debit,0))
+  };
+
+  const tbody = rows.map(r => {
+    const pill = r.status==='Matched'?'pill-matched'
+      :r.status.includes('Narrative')?'pill-reclass'
+      :r.status.includes('Pending')?'pill-pending'
+      :r.status.includes('Zero')?'pill-zero':'pill-error';
+    return `<tr class="${r.rowClass}">
+      <td class="txt">${r.date}</td>
+      <td class="txt">${r.cycle}</td>
+      <td class="txt" style="font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${r.filename||''}</td>
+      <td>${r.cnt||''}</td>
+      <td>${r.txnAmt?'₹'+fmt(r.txnAmt):''}</td>
+      <td>${r.taxable?'₹'+fmt(r.taxable):''}</td>
+      <td>${r.gst?'₹'+fmt(r.gst):''}</td>
+      <td>${r.svcTotal?'₹'+fmt(r.svcTotal):''}</td>
+      <td>${r.net?'₹'+fmt(r.net):''}</td>
+      <td>${r.bankEntry?'₹'+fmt(r.bankEntry.debit):''}</td>
+      <td class="txt">${r.bankEntry?.payDate||''}</td>
+      <td>${r.diff!=null?(Math.abs(r.diff)<0.01?'—':'₹'+r.diff.toFixed(2)):''}</td>
+      <td class="status"><span class="status-pill ${pill}">${r.status}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tab-detail').innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th class="ctr">DSR Date</th><th class="ctr">Cy</th><th class="ctr">File</th>
+        <th>Txn Count</th><th>Txn Amt Dr ₹</th>
+        <th>Taxable ₹</th><th>GST @18% ₹</th><th>Total Svc Fee ₹</th>
+        <th>Final Net ₹</th><th>Bank Debit ₹</th><th class="ctr">Bank Pay Date</th>
+        <th>Diff ₹</th><th class="ctr">Status</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+      <tfoot><tr>
+        <td class="txt" colspan="3">GRAND TOTAL</td>
+        <td>${tot.cnt}</td>
+        <td>₹${fmt(tot.txnAmt)}</td><td>₹${fmt(tot.taxable)}</td>
+        <td>₹${fmt(tot.gst)}</td><td>₹${fmt(tot.svc)}</td>
+        <td>₹${fmt(tot.net)}</td><td>₹${fmt(tot.bank)}</td>
+        <td class="txt">—</td><td>—</td><td class="txt">—</td>
+      </tr></tfoot>
+    </table></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px">
+    * Narrative Mismatch: Amount reconciles but bank narrative carries incorrect DSR date reference.
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER EXCEPTIONS
+// ══════════════════════════════════════════════════════
+function renderExceptions(rows) {
+  const reclass   = rows.filter(r=>r.status.includes('Narrative'));
+  const pending   = rows.filter(r=>r.status.includes('Pending'));
+  const zero      = rows.filter(r=>r.status.includes('Zero'));
+  const unmatched = rows.filter(r=>r.status.includes('Unmatched'));
+
+  const tbl = (data, hdrs, mapper, bg) => !data.length
+    ? '<div style="padding:10px;color:#888;font-size:12px">None</div>'
+    : `<table class="exc-table"><thead><tr>${hdrs.map(h=>`<th class="${['DSR Date','Cy','Pay Date','Note','Bank Narrative'].includes(h)?'ctr':''}">${h}</th>`).join('')}</tr></thead>
+       <tbody>${data.map(r=>`<tr style="background:${bg}">${mapper(r)}</tr>`).join('')}</tbody></table>`;
+
+  document.getElementById('tab-exceptions').innerHTML = `
+    ${unmatched.length?`<div class="exc-section">
+      <div class="exc-hdr">⚠ SECTION 0 – UNMATCHED (${unmatched.length}) — Escalate Immediately</div>
+      ${tbl(unmatched,['DSR Date','Cy','File','DSR Net ₹','Taxable ₹','GST ₹','Note'],
+        r=>`<td class="ctr">${r.date}</td><td class="ctr">${r.cycle}</td>
+            <td class="txt" style="font-size:9px">${r.filename||''}</td>
+            <td>${r.net?'₹'+fmt(r.net):''}</td><td>${r.taxable?'₹'+fmt(r.taxable):''}</td>
+            <td>${r.gst?'₹'+fmt(r.gst):''}</td>
+            <td class="txt">DSR record with no bank debit match. Escalate.</td>`,'#ffcdd2')}
+    </div>`:''}
+
+    <div class="exc-section">
+      <div class="exc-hdr orange">SECTION A – Narrative Mismatch (${reclass.length}) — Amount Correct, Reference Error</div>
+      ${tbl(reclass,['DSR Date','Cy','DSR Net ₹','Taxable ₹','GST ₹','Bank Debit ₹','Pay Date','Bank Narrative'],
+        r=>`<td class="ctr">${r.date}</td><td class="ctr">${r.cycle}</td>
+            <td>${r.net?'₹'+fmt(r.net):''}</td><td>${r.taxable?'₹'+fmt(r.taxable):''}</td>
+            <td>${r.gst?'₹'+fmt(r.gst):''}</td>
+            <td>${r.bankEntry?'₹'+fmt(r.bankEntry.debit):''}</td>
+            <td class="ctr">${r.bankEntry?.payDate||''}</td>
+            <td class="txt">${r.bankEntry?.narr||''}</td>`,'#fff9c4')}
+    </div>
+
+    <div class="exc-section">
+      <div class="exc-hdr orange">SECTION B – Pending Next Month Debit (${pending.length})</div>
+      ${tbl(pending,['DSR Date','Cy','File','DSR Net ₹','Taxable ₹','GST ₹','Note'],
+        r=>`<td class="ctr">${r.date}</td><td class="ctr">${r.cycle}</td>
+            <td class="txt" style="font-size:9px">${r.filename||''}</td>
+            <td>${r.net?'₹'+fmt(r.net):''}</td><td>${r.taxable?'₹'+fmt(r.taxable):''}</td>
+            <td>${r.gst?'₹'+fmt(r.gst):''}</td>
+            <td class="txt">Expected debit in next month's bank statement</td>`,'#ffe0b2')}
+    </div>
+
+    <div class="exc-section">
+      <div class="exc-hdr grey">SECTION C – Zero Net Cycles (${zero.length}) — No Debit Expected</div>
+      ${tbl(zero,['DSR Date','Cy','File','Note'],
+        r=>`<td class="ctr">${r.date}</td><td class="ctr">${r.cycle}</td>
+            <td class="txt" style="font-size:9px">${r.filename||''}</td>
+            <td class="txt">Zero net DSR — Non-financial/GST-only cycle. No bank debit expected.</td>`,'#f5f5f5')}
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// DOWNLOAD EXCEL
+// ══════════════════════════════════════════════════════
+function downloadExcel() {
+  const rows = window._reconRows;
+  const bankEntries = window._bankEntries;
+  if (!rows) return;
+
+  const wb = XLSX.utils.book_new();
+
+  // Recon Detail
+  const detail = [['DSR Date','Cycle','File','Txn Count','Txn Amt Dr','Taxable Value','GST @18%',
+    'Total Svc Fee','Final Net Amt','Bank Debit','Bank Pay Date','Difference','Recon Status']];
+  for (const r of rows) {
+    detail.push([r.date,r.cycle,r.filename||'',r.cnt||0,r.txnAmt||0,r.taxable||0,r.gst||0,
+      r.svcTotal||0,r.net||0,r.bankEntry?.debit||'',r.bankEntry?.payDate||'',r.diff??'',r.status]);
+  }
+  detail.push(['GRAND TOTAL','','',
+    rows.reduce((s,r)=>s+r.cnt,0),
+    round2(rows.reduce((s,r)=>s+r.txnAmt,0)),
+    round2(rows.reduce((s,r)=>s+r.taxable,0)),
+    round2(rows.reduce((s,r)=>s+r.gst,0)),
+    round2(rows.reduce((s,r)=>s+r.svcTotal,0)),
+    round2(rows.reduce((s,r)=>s+(r.net||0),0)),
+    round2(rows.filter(r=>r.bankEntry).reduce((s,r)=>s+r.bankEntry.debit,0)),
+    '','','']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detail), 'Recon Detail');
+
+  // Summary
+  const netAbs = round2(rows.reduce((s,r)=>s+Math.abs(r.net||0),0));
+  const bankTotal = round2(bankEntries.reduce((s,b)=>s+b.debit,0));
+  const pendingAmt = round2(rows.filter(r=>r.status.includes('Pending')).reduce((s,r)=>s+Math.abs(r.net||0),0));
+  const summary = [
+    ['NETC FASTag Reconciliation Summary'],
+    ['Generated', new Date().toLocaleString('en-IN')],
+    ['DSR Files', state.dsrFileCount],
+    [],
+    ['DSR OVERVIEW'],
+    ['Total Cycles', rows.length],
+    ['Non-Zero', rows.filter(r=>r.net!==0).length],
+    ['Zero', rows.filter(r=>r.net===0).length],
+    ['Total Txn Amt Dr', round2(rows.reduce((s,r)=>s+r.txnAmt,0))],
+    ['Taxable Value', round2(rows.reduce((s,r)=>s+r.taxable,0))],
+    ['GST @18%', round2(rows.reduce((s,r)=>s+r.gst,0))],
+    ['Total Svc Fee', round2(rows.reduce((s,r)=>s+r.svcTotal,0))],
+    ['DSR Net Payable', netAbs],
+    [],
+    ['BANK'],
+    ['Total Entries', bankEntries.length],
+    ['Total Debit', bankTotal],
+    [],
+    ['RECON RESULT'],
+    ['Matched – Exact', rows.filter(r=>r.status==='Matched').length],
+    ['Matched – Narrative Mismatch', rows.filter(r=>r.status.includes('Narrative')).length],
+    ['Pending Next Month', rows.filter(r=>r.status.includes('Pending')).length],
+    ['Zero DSR', rows.filter(r=>r.status.includes('Zero')).length],
+    ['Unmatched', rows.filter(r=>r.status.includes('Unmatched')).length],
+    [],
+    ['Bank Total', bankTotal],
+    ['+ Pending', pendingAmt],
+    ['= Reconciled', round2(bankTotal+pendingAmt)],
+    ['DSR Payable', netAbs],
+    ['NET DIFFERENCE', round2(round2(bankTotal+pendingAmt)-netAbs)],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
+
+  // Exceptions
+  const exc = [['Type','DSR Date','Cycle','File','DSR Net','Taxable','GST','Bank Debit','Pay Date','Note']];
+  for (const r of rows) {
+    if (r.status.includes('Unmatched'))
+      exc.push(['UNMATCHED',r.date,r.cycle,r.filename||'',r.net,r.taxable,r.gst,'','','Escalate immediately']);
+    else if (r.status.includes('Narrative'))
+      exc.push(['NARRATIVE MISMATCH',r.date,r.cycle,r.filename||'',r.net,r.taxable,r.gst,
+        r.bankEntry?.debit||'',r.bankEntry?.payDate||'',r.bankEntry?.narr||'']);
+    else if (r.status.includes('Pending'))
+      exc.push(['PENDING',r.date,r.cycle,r.filename||'',r.net,r.taxable,r.gst,'','','Expected next month']);
+    else if (r.status.includes('Zero'))
+      exc.push(['ZERO DSR',r.date,r.cycle,r.filename||'',0,0,0,'','','No debit expected']);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(exc), 'Exceptions');
+
+  const month = state.dsrMonth.replace('-','_') || 'output';
+  XLSX.writeFile(wb, `Fastag_Recon_${month}.xlsx`);
+}
+
+// ══════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  const labels = {summary:'Summary',detail:'Recon Detail',exceptions:'Exceptions'};
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    if(b.textContent.trim()===labels[name]) b.classList.add('active');
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════
+function checkReady() {
+  document.getElementById('run-btn').disabled = !(state.dsrBlocks?.length && state.bankWB);
+}
+function showError(msg) {
+  document.getElementById('err-area').innerHTML = `<div class="err-box">⚠ ${msg}</div>`;
+}
+function round2(n) { return Math.round((n+Number.EPSILON)*100)/100; }
+function fmt(n) {
+  if (n==null||n==='') return '';
+  const abs = Math.abs(n);
+  const s = abs.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return n<0?'('+s+')':s;
+}
+function fmtDate(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    return String(v.getDate()).padStart(2,'0')+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+v.getFullYear();
+  }
+  return String(v).trim().substring(0,10);
+}
+function readFileAsync(file) {
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => rej(new Error('Read failed: '+file.name));
+    r.readAsArrayBuffer(file);
+  });
+}
+</script>
+</body>
+</html>

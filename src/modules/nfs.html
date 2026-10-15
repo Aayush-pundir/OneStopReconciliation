@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NFS Recon Tool — Eroute Technologies</title>
+<!-- SheetJS 0.18.5 for READING | ExcelJS for WRITING with full colour support -->
+<script>
+(function(){
+  // Load SheetJS first (read engine)
+  function loadSheetJS(idx){
+    var urls=['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','./xlsx.full.min.js'];
+    if(idx>=urls.length){document.body.innerHTML='<div style="padding:40px;color:#e8503a;background:#1c1208;min-height:100vh"><h2>⚠ SheetJS failed to load. Place xlsx.full.min.js next to this file.</h2></div>';return;}
+    var s=document.createElement('script');s.src=urls[idx];
+    s.onload=function(){window.XLSXr=window.XLSX;loadExcelJS(0);};
+    s.onerror=function(){loadSheetJS(idx+1);};
+    document.head.appendChild(s);
+  }
+  // Load ExcelJS (write engine — full style support)
+  function loadExcelJS(idx){
+    var urls=['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','./exceljs.min.js'];
+    if(idx>=urls.length){console.warn('ExcelJS not loaded — export unavailable');return;}
+    var s=document.createElement('script');s.src=urls[idx];
+    s.onload=function(){
+      // ExcelJS UMD exposes as ExcelJS.default.Workbook or ExcelJS.Workbook
+      var EJ=window.ExcelJS;
+      if(EJ&&EJ.default&&EJ.default.Workbook) window.ExcelJSWorkbook=EJ.default.Workbook;
+      else if(EJ&&EJ.Workbook) window.ExcelJSWorkbook=EJ.Workbook;
+      else if(typeof EJ==='function') window.ExcelJSWorkbook=EJ;
+      console.log('ExcelJS ready, Workbook:',typeof window.ExcelJSWorkbook);
+    };
+    s.onerror=function(){loadExcelJS(idx+1);};
+    document.head.appendChild(s);
+  }
+  loadSheetJS(0);
+})();
+</script>
+<style>
+:root{
+  --bg:#1c1208;--s1:#261a0a;--s2:#31200d;--border:#5a3e1f;
+  --accent:#e8922a;--accent2:#f5b954;
+  --green:#5cba6a;--red:#e8503a;--yellow:#e8c84a;--orange:#f09030;
+  --text:#f5e6d0;--text2:#c9a97a;--text3:#9c7a52;
+  --mbg:#0d2119;--mfg:#3fb950;
+  --pbg:#0d1b2e;--pfg:#58a6ff;
+  --ebg:#3a1008;--efg:#e8503a;
+  --dbg:#2b1d0e;--dfg:#f0883e;
+  --font:'Segoe UI',system-ui,sans-serif;
+  --mono:'Cascadia Code','Consolas',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px}
+.hdr{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.hdr-ic{width:32px;height:32px;border-radius:7px;background:linear-gradient(135deg,#2f81f7,#58a6ff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff}
+.hdr-t{font-size:14px;font-weight:700}
+.hdr-s{font-size:11px;color:var(--text2)}
+.tags{display:flex;gap:6px}
+.tag{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--text2)}
+
+main{padding:18px 24px;max-width:1500px;margin:0 auto}
+
+/* UPLOAD CARDS */
+.up-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.card{background:var(--s1);border:2px dashed var(--border);border-radius:10px;padding:16px 18px;transition:border-color .2s}
+.card.ok{border-style:solid;border-color:var(--green)}
+.card.err{border-style:solid;border-color:var(--red)}
+.card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.card-ic{font-size:20px}
+.card-title{font-size:13px;font-weight:700}
+.card-hint{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.card-hint code{background:var(--s2);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:10px}
+
+/* UPLOAD BUTTONS */
+.up-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.up-btn{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px 8px;text-align:center;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.up-btn:hover{border-color:var(--accent);background:#3a2510}
+.up-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;width:100%;height:100%}
+.up-btn-ic{font-size:16px;display:block;margin-bottom:2px;pointer-events:none}
+.up-btn-lbl{font-size:11px;font-weight:600;color:var(--text2);pointer-events:none}
+.up-btn-hint{font-size:10px;color:var(--text3);pointer-events:none}
+.up-btn:hover .up-btn-lbl{color:var(--accent2)}
+
+.drop-zone{border:1.5px dashed var(--border);border-radius:7px;padding:12px;text-align:center;cursor:pointer;background:var(--s2);position:relative;transition:all .2s}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:#3a2510}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.dz-txt{font-size:11px;color:var(--text3);pointer-events:none}
+.up-st{margin-top:8px;font-size:11px;min-height:16px;line-height:1.5}
+
+/* CTRL BAR */
+.ctrl{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ctrl label{font-size:11px;color:var(--text2);white-space:nowrap}
+.ctrl input[type=number]{width:75px;background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 7px;color:var(--text);font-size:12px}
+.ctrl input[type=checkbox]{accent-color:var(--accent)}
+.ctrl select{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 9px;color:var(--text);font-size:12px}
+.btn{padding:7px 16px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-run{background:var(--accent);color:#fff}
+.btn-run:hover:not(:disabled){background:#388bfd}
+.btn-exp{background:#1a7f37;color:#fff}
+.btn-exp:hover:not(:disabled){background:#238636}
+.btn-imp{background:var(--s2);color:var(--accent2);border:1px solid var(--accent2)}
+.btn-imp:hover:not(:disabled){background:#0d1b2e}
+.btn-rst{background:var(--s2);color:var(--text);border:1px solid var(--border)}
+.btn-rst:hover{border-color:var(--accent)}
+.btn-imp{background:var(--s2);color:var(--accent2);border:1px solid var(--accent2);position:relative}
+.btn-imp:hover{background:#0d1b2e}
+.imp-wrap{position:relative;display:inline-block}
+.ctrl-r{margin-left:auto;font-size:11px;color:var(--text3)}
+
+/* LOG */
+.log{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-family:var(--mono);font-size:11px;max-height:90px;overflow-y:auto;margin-bottom:12px;display:none}
+.ll-ok{color:var(--green)}.ll-err{color:var(--red)}.ll-warn{color:var(--yellow)}.ll-info{color:var(--accent2)}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:11px 14px}
+.kpi-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.kpi-v{font-size:20px;font-weight:700}
+.kpi-s{font-size:10px;color:var(--text3);margin-top:2px}
+.cw{color:var(--text)}.cg{color:var(--green)}.cr{color:var(--red)}.cb{color:var(--accent2)}.co{color:var(--orange)}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid var(--border)}
+.tab{padding:7px 15px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:5px 5px 0 0;background:transparent;transition:all .12s}
+.tab:hover{color:var(--text);background:var(--s2)}
+.tab.act{color:var(--text);background:var(--s1);border-color:var(--border);border-bottom-color:var(--s1)}
+.tbdg{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:700}
+.dg-gray{background:var(--s2);color:var(--text2)}
+.dg-green{background:#0d2119;color:var(--green)}
+.dg-red{background:#2d1111;color:var(--red)}
+.dg-blue{background:#0d1b2e;color:var(--accent2)}
+.dg-orange{background:#2b1d0e;color:var(--orange)}
+
+/* PANEL */
+.panel{display:none;background:var(--s1);border:1px solid var(--border);border-top:none;border-radius:0 0 9px 9px}
+.panel.act{display:block}
+
+/* FILTER BAR */
+.fbar{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fbar input[type=text]{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 9px;color:var(--text);font-size:12px;width:190px}
+.fbar select{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:4px 9px;color:var(--text);font-size:12px}
+.fbar-r{margin-left:auto;font-size:11px;color:var(--text3)}
+
+/* TABLE */
+.tw{overflow-x:auto;max-height:500px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{position:sticky;top:0;z-index:2;background:var(--s2);color:var(--text2);padding:7px 9px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);white-space:nowrap;user-select:none}
+thead th.s{cursor:pointer}
+thead th.s:hover{color:var(--text)}
+.sic{opacity:.3;margin-left:2px;font-size:10px}
+tbody tr{border-bottom:1px solid rgba(48,54,61,.4)}
+tbody tr:hover{background:rgba(47,129,247,.04)}
+tbody td{padding:6px 9px;vertical-align:middle}
+.num{text-align:right;font-family:var(--mono);font-size:11px}
+.ctr{text-align:center}
+.bd{display:inline-block;padding:1px 8px;border-radius:9px;font-size:10px;font-weight:700;white-space:nowrap}
+.bd-m{background:var(--mbg);color:var(--mfg)}
+.bd-p{background:var(--pbg);color:var(--pfg)}
+.bd-e{background:var(--ebg);color:var(--efg)}
+.bd-d{background:var(--dbg);color:var(--dfg)}
+.rw-e td{color:#f8514970}.rw-d td{color:#f0883e70}.rw-p td{color:#58a6ff70}.rw-c td{color:#bc8cff70;font-style:italic}
+.dn{color:var(--red)}.dp{color:var(--orange)}.dz{color:var(--text3)}
+.gt{background:rgba(47,129,247,.08);font-weight:700;border-top:2px solid var(--accent)!important}
+.gt td{color:var(--text)!important}
+.note{padding:9px 14px;border-left:3px solid var(--accent);font-size:11px;color:var(--text2);line-height:1.5;background:rgba(47,129,247,.06)}
+.note-ok{border-color:var(--green);background:rgba(63,185,80,.06)}
+.note-err{border-color:var(--red);background:rgba(248,81,73,.06)}
+.tft{padding:6px 12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text3)}
+.sum-t{width:100%;border-collapse:collapse;font-size:12px}
+.sum-t td{padding:7px 14px;border-bottom:1px solid var(--border)}
+.sum-t tr:last-child td{border-bottom:none}
+.sk{font-weight:600;width:250px;color:var(--text2)}
+.sv{color:var(--text)}.sv.good{color:var(--green);font-weight:700}.sv.bad{color:var(--red);font-weight:700}
+@media(max-width:900px){.up-row{grid-template-columns:1fr}.kpi-row{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="hdr-ic">N</div>
+    <div><div class="hdr-t">NFS Settlement Reconciliation Tool</div>
+    <div class="hdr-s">Eroute Technologies — Offline Utility v5 | Any file format</div></div>
+  </div>
+  <div class="tags">
+    <span class="tag">4 Cycles/Day</span>
+    <span class="tag">T+1 Settlement</span>
+    <span class="tag" id="tagPd">—</span>
+  </div>
+</div>
+
+<main>
+<div class="up-row">
+
+  <!-- NTSL CARD -->
+  <div class="card" id="cardN">
+    <div class="card-hdr"><span class="card-ic">📂</span><span class="card-title">NTSL Files</span></div>
+    <div class="card-hint">
+      Any format accepted: <code>.xls</code> <code>.xlsx</code> <code>.xlsm</code> — individual files OR single Merge file<br>
+      HTML-XLS (NPCI format), standard Excel, merged workbook — all parsed automatically<br>
+      Cycle decoded from filename <code>NTSLERODDMMYY_NC</code> or assigned by block order
+    </div>
+    <div class="up-btns">
+      <div class="up-btn" title="Select folder — Chrome/Edge">
+        <input type="file" id="fFolder" webkitdirectory mozdirectory directory multiple onchange="pick('ntsl',this.files)">
+        <span class="up-btn-ic">📁</span>
+        <span class="up-btn-lbl">Upload Folder</span>
+        <span class="up-btn-hint">Chrome / Edge only</span>
+      </div>
+      <div class="up-btn" title="Select multiple files — all browsers">
+        <input type="file" id="fMulti" multiple accept=".xls,.xlsx,.xlsm" onchange="pick('ntsl',this.files)">
+        <span class="up-btn-ic">🗂️</span>
+        <span class="up-btn-lbl">Multiple Files</span>
+        <span class="up-btn-hint">Ctrl+A / Shift+Click</span>
+      </div>
+    </div>
+    <div class="drop-zone" id="dzN"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="drop(event,'ntsl')">
+      <input type="file" id="fDzN" multiple accept=".xls,.xlsx,.xlsm" onchange="pick('ntsl',this.files)" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0">
+      <div class="dz-txt">⬇ Drop files here or click — each batch <b>adds</b> to existing | <button onclick="event.stopPropagation();clearNTSL()" style="background:var(--ebg);color:var(--efg);border:none;border-radius:4px;padding:1px 7px;font-size:10px;cursor:pointer;font-weight:700">✕ Clear</button></div>
+    </div>
+    <div class="up-st" id="stN"></div>
+  </div>
+
+  <!-- BANK CARD -->
+  <div class="card" id="cardB">
+    <div class="card-hdr"><span class="card-ic">🏦</span><span class="card-title">Bank Statement</span></div>
+    <div class="card-hint">
+      <code>.xlsx</code> — columns: Payment date | Narrative | Eroute Remarks | Debit<br>
+      Narrative: <code>NFS EROUTE TECH PVT LTD_00YYYYMMDDCC</code> | Remarks = NFS
+    </div>
+    <div class="drop-zone" id="dzB"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="drop(event,'bank')">
+      <input type="file" id="fBank" accept=".xlsx,.xls,.xlsm" onchange="pick('bank',this.files)">
+      <div class="dz-txt">⬇ Drop bank statement here or click</div>
+    </div>
+    <div class="up-st" id="stB"></div>
+  </div>
+
+</div>
+
+<div class="ctrl">
+  <label>Month</label>
+  <select id="selMo"><option value="">All</option></select>
+  <label>Threshold (₹)</label>
+  <input type="number" id="thresh" value="1" min="0" step="0.01">
+  <label><input type="checkbox" id="chkCarry" checked>&nbsp;Show carry-over</label>
+  <button class="btn btn-run" id="btnRun" onclick="runRecon()" disabled>▶ Run Reconciliation</button>
+  <button class="btn btn-exp" id="btnExp" onclick="exportExcel()" disabled>⬇ Export Excel</button>
+  <span class="imp-wrap" title="Load a previously exported NFS_Recon_*.xlsx to review without re-running">
+    <button class="btn btn-imp" onclick="document.getElementById('fImpXL').click()">📂 Load Recon Excel</button>
+    <input type="file" id="fImpXL" accept=".xlsx" style="position:absolute;inset:0;opacity:0;pointer-events:none" onchange="importExcel(this.files[0])">
+  </span>
+  <button class="btn btn-rst" onclick="resetAll()">↺ Reset</button>
+  <span class="ctrl-r" id="runTs"></span>
+</div>
+
+<div class="log" id="logDiv"></div>
+
+<div class="kpi-row" id="kpiRow" style="display:none">
+  <div class="kpi"><div class="kpi-l">Total Cycles</div><div class="kpi-v cw" id="kTot">—</div><div class="kpi-s" id="kDays">—</div></div>
+  <div class="kpi"><div class="kpi-l">Matched</div><div class="kpi-v cg" id="kMat">—</div><div class="kpi-s" id="kMatA">—</div></div>
+  <div class="kpi"><div class="kpi-l">Pending (T+1)</div><div class="kpi-v cb" id="kPnd">—</div><div class="kpi-s" id="kPndA">—</div></div>
+  <div class="kpi"><div class="kpi-l">Differences (&gt;₹<span id="kThr">1</span>)</div><div class="kpi-v cr" id="kDif">—</div><div class="kpi-s" id="kDifA">—</div></div>
+  <div class="kpi"><div class="kpi-l">NTSL Total</div><div class="kpi-v cw" id="kNTSL">—</div><div class="kpi-s" id="kNs">—</div></div>
+  <div class="kpi"><div class="kpi-l">Bank Total</div><div class="kpi-v cw" id="kBnk">—</div><div class="kpi-s" id="kBs">—</div></div>
+</div>
+
+<div id="resArea" style="display:none">
+  <div class="tab-bar">
+    <div class="tab act" onclick="tab('cycle')">Cycle Detail<span class="tbdg dg-gray" id="tbCy">0</span></div>
+    <div class="tab" onclick="tab('daily')">Daily Summary<span class="tbdg dg-gray" id="tbDy">0</span></div>
+    <div class="tab" onclick="tab('diffs')">Differences<span class="tbdg dg-gray" id="tbDf">0</span></div>
+    <div class="tab" onclick="tab('pend')">Pending<span class="tbdg dg-gray" id="tbPd">0</span></div>
+    <div class="tab" onclick="tab('carry')">Carry-over<span class="tbdg dg-gray" id="tbCr">0</span></div>
+    <div class="tab" onclick="tab('sum')">Summary</div>
+  </div>
+
+  <div class="panel act" id="pan-cycle">
+    <div class="fbar">
+      <input type="text" id="cyQ" placeholder="Search…" oninput="rCycle()">
+      <select id="cySt" onchange="rCycle()"><option value="">All Status</option>
+        <option>MATCHED</option><option>PENDING</option><option>EXCESS DEBIT</option><option>DEFICIT</option>
+      </select>
+      <select id="cyDt" onchange="rCycle()"><option value="">All Dates</option></select>
+      <span class="fbar-r" id="cyCnt"></span>
+    </div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th class="s" onclick="srt('txnDate')">Date<span class="sic" id="si-txnDate">↕</span></th>
+        <th class="s" onclick="srt('settDate')">Sett Date<span class="sic" id="si-settDate">↕</span></th>
+        <th class="ctr">Cycle</th>
+        <th class="num s" onclick="srt('atmCount')">ATM Cnt<span class="sic" id="si-atmCount">↕</span></th>
+        <th class="num s" onclick="srt('atmAmt')">ATM Amt<span class="sic" id="si-atmAmt">↕</span></th>
+        <th class="num">ATM Fee+GST</th>
+        <th class="num">BI Cnt</th><th class="num">BI Fee+GST</th>
+        <th class="num">Micro Cnt</th><th class="num">Micro Amt</th><th class="num">Micro Fee+GST</th>
+        <th class="num">Sw Cnt</th><th class="num">Sw Fee+GST</th>
+        <th class="num">Disp Amt</th>
+        <th class="num s" onclick="srt('ntslFinal')">Settlement Total<span class="sic" id="si-ntslFinal">↕</span></th>
+        <th class="num s" onclick="srt('bankAmt')">Bank Credit<span class="sic" id="si-bankAmt">↕</span></th>
+        <th class="num s" onclick="srt('diff')">Diff<span class="sic" id="si-diff">↕</span></th>
+        <th class="ctr">Status</th>
+      </tr></thead>
+      <tbody id="cyBody"></tbody>
+    </table></div>
+    <div class="tft"><span id="cyFt"></span></div>
+  </div>
+
+  <div class="panel" id="pan-daily">
+    <div class="fbar">
+      <input type="text" id="dyQ" placeholder="Search date…" oninput="rDaily()">
+      <span class="fbar-r" id="dyCnt"></span>
+    </div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Txn Date</th><th>Sett Date</th>
+        <th class="num">ATM Cnt</th><th class="num">ATM Amt</th><th class="num">ATM Fee+GST</th>
+        <th class="num">Micro Amt</th><th class="num">Sw Cnt</th>
+        <th class="num">Settlement Total</th><th class="num">Bank Total</th>
+        <th class="num">Diff</th><th class="ctr">Status</th><th class="num">Daily Bank Total</th>
+      </tr></thead>
+      <tbody id="dyBody"></tbody>
+    </table></div>
+    <div class="tft"><span id="dyFt"></span></div>
+  </div>
+
+  <div class="panel" id="pan-diffs">
+    <div class="note note-ok" id="difNote"></div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Txn Date</th><th>Sett Date</th><th class="ctr">Cycle</th>
+        <th class="num">Settlement Total</th><th class="num">Bank Credit</th>
+        <th class="num">Difference</th><th class="ctr">Type</th><th>Action</th>
+      </tr></thead>
+      <tbody id="dfBody"></tbody>
+    </table></div>
+    <div class="tft"><span id="dfFt"></span></div>
+  </div>
+
+  <div class="panel" id="pan-pend">
+    <div class="note">Cycles with NTSL data but no bank debit found. Expected T+1 settlement. No action unless overdue.</div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Txn Date</th><th>Expected Sett</th><th class="ctr">Cycle</th>
+        <th class="num">Settlement Total</th><th>Expected Narrative</th><th>Remark</th>
+      </tr></thead>
+      <tbody id="pdBody"></tbody>
+    </table></div>
+    <div class="tft"><span id="pdFt"></span></div>
+  </div>
+
+  <div class="panel" id="pan-carry">
+    <div class="note">Bank debits outside NTSL month scope. Audit trail — not in recon totals.</div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Txn Date</th><th>Sett Date</th><th class="ctr">Cycle</th>
+        <th class="num">Bank Debit</th><th>Narrative</th><th>Note</th>
+      </tr></thead>
+      <tbody id="crBody"></tbody>
+    </table></div>
+    <div class="tft"><span id="crFt"></span></div>
+  </div>
+
+  <div class="panel" id="pan-sum">
+    <div style="padding:14px"><table class="sum-t" id="sumTbl"></table></div>
+  </div>
+</div>
+</main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════════ */
+let NTSL=[], BANK=[], RECON=[], DAILY=[], CARRY=[];
+let SS={col:null,dir:1};
+let ntslOK=false, bankOK=false;
+
+/* ══════════════════════════════════════════════════════════════════
+   FILE INPUT HANDLERS
+══════════════════════════════════════════════════════════════════ */
+function drop(e,t){ e.preventDefault(); document.getElementById(t==='ntsl'?'dzN':'dzB').classList.remove('drag'); pick(t,e.dataTransfer.files); }
+async function pick(t,files){
+  if(!files||!files.length)return;
+  if(t==='ntsl') await loadNTSL(Array.from(files), true); // always append — use Clear button to reset
+  else await loadBank(files[0]);
+  checkReady();
+}
+function clearNTSL(){
+  NTSL=[];ntslOK=false;
+  document.getElementById('cardN').classList.remove('ok','err');
+  setSt('stN','');
+  ['fFolder','fMulti'].forEach(id=>{document.getElementById(id).value='';});
+  checkReady();
+  lg('info','NTSL cleared');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NTSL LOADER — handles ALL formats:
+   1. HTML-as-XLS  (NPCI individual files, .xls extension)
+   2. XLSX/XLSM    (standard Excel, .xlsx/.xlsm, merged or individual)
+   3. Any extension — content-type detected by sniffing bytes/content
+
+   Cycle extraction priority:
+   A) Filename pattern NTSLERODDMMYY_NC → exact date+cycle
+   B) Header "as on DD/MM/YYYY" + block order per date
+══════════════════════════════════════════════════════════════════ */
+async function loadNTSL(files, append=false){
+  const valid = Array.from(files).filter(f=>!f.name.startsWith('~$'));
+  if(!valid.length){ setSt('stN','<span style="color:var(--red)">✗ No valid files found</span>'); return; }
+
+  if(!append) NTSL=[];
+  let ok=0, fail=[], total=valid.length;
+
+  setSt('stN',progBar(0,total,0));
+  await yieldUI();
+
+  for(let i=0;i<total;i++){
+    const f=valid[i];
+    try{
+      const head=await f.slice(0,8).arrayBuffer();
+      const u8h=new Uint8Array(head);
+      const isPK=u8h[0]===0x50&&u8h[1]===0x4B;
+      const isOLE=u8h[0]===0xD0&&u8h[1]===0xCF;
+      let blocks;
+      if(isPK||isOLE){
+        const buf=await readBuf(f);
+        const u8=new Uint8Array(buf);
+        blocks=parseNTSLFile(buf,u8,f.name);
+      } else {
+        const text=await readText(f);
+        blocks=parseHTMLFile(text,f.name);
+      }
+      if(blocks&&blocks.length){ NTSL.push(...blocks); ok++; }
+      else fail.push(f.name);
+    }catch(ex){
+      fail.push(f.name);
+      lg('err','['+f.name+'] '+ex.message);
+    }
+    if(i%10===0||i===total-1){
+      setSt('stN',progBar(i+1,total,ok));
+      await yieldUI();
+    }
+  }
+
+  if(!NTSL.length){
+    setSt('stN','<span style="color:var(--red)">✗ No data parsed from '+total+' file(s). Check log.</span>');
+    if(fail.length) lg('err','Failed: '+fail.slice(0,5).join(', ')+(fail.length>5?'…':''));
+    ntslOK=false; return;
+  }
+
+  NTSL.sort((a,b)=>a.txnDate-b.txnDate||((a.cycleFromName||'').localeCompare(b.cycleFromName||'')));
+  ntslOK=true;
+  document.getElementById('cardN').classList.add('ok');
+  const mos=[...new Set(NTSL.map(b=>fmtMo(b.txnDate)))].join(', ');
+  setSt('stN','<span style="color:var(--green)">✓ '+NTSL.length+' cycles from '+ok+'/'+total+' file(s) ('+mos+')'+(fail.length?' | ⚠ '+fail.length+' failed':'')+'</span>');
+  if(fail.length) lg('warn',fail.length+' file(s) no blocks: '+fail.slice(0,5).join(', ')+(fail.length>5?'…':''));
+  lg('ok','NTSL loaded: '+NTSL.length+' cycles / '+ok+' files');
+  buildMoFilter();
+}
+
+function progBar(done,total,ok){
+  const pct=Math.round(done/total*100);
+  return '<span style="color:var(--yellow)">⏳ '+done+'/'+total+' ('+ok+' ok) '+
+    '<span style="display:inline-block;background:var(--border);border-radius:3px;width:100px;height:8px;vertical-align:middle;overflow:hidden">'+
+    '<span style="display:block;background:var(--accent);width:'+pct+'%;height:100%"></span></span> '+pct+'%</span>';
+}
+
+/* Detect format and parse one file — returns array of block objects */
+function parseNTSLFile(buf, u8, fname){
+  /* Detect by magic bytes:
+     PK\x03\x04   → ZIP → XLSX/XLSM
+     \xD0\xCF\x11\xE0 → OLE2 → XLS (real binary)
+     <html        → HTML-as-XLS (NPCI format)
+     anything else → try HTML parse */
+  const magic4 = String.fromCharCode(u8[0],u8[1],u8[2],u8[3]);
+
+  if(magic4.startsWith('PK\x03\x04')){
+    // XLSX / XLSM
+    return parseXLSX(buf, fname);
+  } else if(u8[0]===0xD0 && u8[1]===0xCF && u8[2]===0x11 && u8[3]===0xE0){
+    // Real binary XLS — try SheetJS
+    return parseXLSX(buf, fname);
+  } else {
+    // HTML or unknown — parse as HTML
+    const text = new TextDecoder('utf-8',{fatal:false}).decode(u8);
+    if(text.trim().toLowerCase().startsWith('<') || text.includes('<html') || text.includes('<table')){
+      return parseHTMLFile(text, fname);
+    }
+    // Fallback: try SheetJS anyway
+    return parseXLSX(buf, fname);
+  }
+}
+
+/* ── HTML-XLS PARSER — REGEX BASED (no DOMParser, 50x faster) ────
+   Directly extracts values from raw HTML string using regex.
+   Verified: 120 NPCI files in <100ms vs DOMParser which hangs browser.
+─────────────────────────────────────────────────────────────── */
+function parseHTMLFile(text, fname){
+  // Helper: get text content of next <td> after a label string
+  function cellAfter(label, html, skip){
+    const idx = html.indexOf(label);
+    if(idx<0) return '';
+    const chunk = html.slice(idx, idx+600);
+    const tds = [];
+    const re = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let m;
+    while((m=re.exec(chunk))!==null){
+      tds.push(m[1].replace(/<[^>]+>/g,'').trim());
+      if(tds.length>6) break;
+    }
+    return tds[skip||0]||'';
+  }
+
+  // Date — from header line
+  let txnDate = null;
+  let m = text.match(/Daily Settlement Statement[\s\S]{0,100}?as on\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+  if(m) txnDate = new Date(+m[3],+m[2]-1,+m[1]);
+  if(!txnDate){
+    m = text.match(/Daily Settlement Statement[\s\S]{0,100}?as on\s+(\d{2})-(\d{2})-(\d{4})/i);
+    if(m) txnDate = new Date(+m[3],+m[2]-1,+m[1]);
+  }
+  if(!txnDate) txnDate = dateFromFilename(fname);
+
+  // Final Settlement Amount — last non-zero numeric td after label
+  let finalAmt = null;
+  const fsaIdx = text.indexOf('Final Settlement Amount');
+  if(fsaIdx>=0){
+    const chunk = text.slice(fsaIdx, fsaIdx+400);
+    const tdVals = [...chunk.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
+                   .map(x=>x[1].replace(/<[^>]+>/g,'').trim());
+    for(const v of tdVals){ const n=parseFloat(v); if(n>0){finalAmt=n;break;} }
+  }
+
+  if(!txnDate||finalAmt===null){
+    lg('warn','['+fname+'] date='+(txnDate?fmtD(txnDate):'null')+' finalAmt='+finalAmt);
+    return [];
+  }
+
+  // ATM Transaction Amount & count
+  let atmCount=0, atmAmt=0, atmFee=null;
+  m = text.match(/Issuer WDL Transaction Amount<\/td>\s*<td[^>]*>(\d+)<\/td>\s*<td[^>]*>([\d.]+)/i);
+  if(m){ atmCount=+m[1]; atmAmt=+m[2]; }
+  // ATM Fee
+  m = text.match(/Issuer WDL Approved Fee<\/td>\s*<td[^>]*>(\d+)<\/td>\s*<td[^>]*>([\d.]+)/i);
+  if(m) atmFee=+m[2];
+
+  // Micro ATM transaction amount
+  let microAmt=0, microCount=0;
+  m = text.match(/Issuer WDL Transaction Amount \(Micro-ATM\)<\/td>\s*<td[^>]*>\d+<\/td>\s*<td[^>]*>([\d.]+)/i);
+  if(m) microAmt=+m[1];
+  // Micro count from summary table (Rs. 100 and above row)
+  m = text.match(/Issuer WDLTransaction \(Micro ATM\)<\/td>\s*<td[^>]*>Rs\. 100 and above<\/td>\s*<td[^>]*>(\d+)/i);
+  if(m) microCount=+m[1];
+
+  // BI Approved count
+  let biCount=0;
+  m = text.match(/Issuer BI Approved Fee<\/td>\s*<td[^>]*>(\d+)/i);
+  if(m) biCount=+m[1];
+
+  // Disputes — Adjustment Sub Totals debit col
+  let disputeAmt=0;
+  const dispIdx = text.indexOf('Dispute Adjustments');
+  if(dispIdx>=0){
+    const dispChunk = text.slice(dispIdx, dispIdx+800);
+    const adjIdx = dispChunk.indexOf('Adjustment Sub Totals');
+    if(adjIdx>=0){
+      const adjChunk = dispChunk.slice(adjIdx, adjIdx+300);
+      const tdVals = [...adjChunk.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)]
+                     .map(x=>x[1].replace(/<[^>]+>/g,'').trim());
+      const deb=parseFloat(tdVals[2])||0, cre=parseFloat(tdVals[3])||0;
+      if(deb||cre) disputeAmt=deb-cre;
+    }
+  }
+
+  const cycleFromName = cycleFromFilename(fname);
+  return [build({txnDate,finalAmt,atmCount,atmAmt,atmFee,biCount,microAmt,microCount,disputeAmt,cycleFromName})];
+}
+
+/* ── XLSX/XLSM PARSER (merged file or individual xlsx) ─────────── */
+function parseXLSX(buf, fname){
+  const wb = XLSX.read(buf,{type:'array',cellDates:true,dense:false});
+  const blocks=[];
+  for(const sn of wb.SheetNames){
+    const ws=wb.Sheets[sn];
+    if(!ws||!ws['!ref'])continue;
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true,blankrows:false});
+    const parsed=parseXLSXRows(rows, fname);
+    blocks.push(...parsed);
+  }
+  return blocks;
+}
+
+function parseXLSXRows(rows, fname){
+  const blocks=[]; let cur=null;
+  for(const row of rows){
+    if(!row)continue;
+    let c0='';
+    if(row[0]!==null&&row[0]!==undefined){
+      c0 = (typeof row[0]==='string') ? row[0].trim() : (row[0] instanceof Date?'':String(row[0]).trim());
+    }
+    if(c0.toLowerCase().includes('daily settlement statement')&&c0.toLowerCase().includes('as on')){
+      if(cur&&cur.finalAmt!=null) blocks.push(build(cur));
+      const d=extractDate(c0, row);
+      if(!d){lg('warn','['+fname+'] no date: '+c0.slice(0,60));cur=null;continue;}
+      cur={txnDate:d,finalAmt:null,atmCount:0,atmAmt:0,atmFee:null,biCount:0,
+           microAmt:0,microCount:0,disputeAmt:0,inDispute:false,cycleFromName:null};
+      continue;
+    }
+    if(!cur)continue;
+    if(c0.toLowerCase().includes('dispute adjustment')){cur.inDispute=true;continue;}
+    if(c0.toLowerCase().includes('summary for micro')){cur.inDispute=false;continue;}
+    if(c0==='Final Settlement Amount'){
+      for(let i=1;i<Math.min(row.length,6);i++){const v=toN(row[i]);if(v>0){cur.finalAmt=v;break;}}
+    } else if(c0==='Issuer WDL Transaction Amount'){
+      cur.atmCount=toI(row[1]); cur.atmAmt=toN(row[2]);
+    } else if(c0==='Issuer WDL Approved Fee'&&!c0.includes('GST')&&!c0.includes('Micro')){
+      cur.atmFee=toN(row[2]);
+    } else if(c0==='Issuer WDL Transaction Amount (Micro-ATM)'){
+      cur.microAmt=toN(row[2]);
+    } else if(c0==='Issuer WDLTransaction (Micro ATM)'&&row[1]&&String(row[1]).includes('100 and above')){
+      cur.microCount+=toI(row[2]);
+    } else if(c0==='Issuer BI Approved Fee'&&!c0.includes('GST')){
+      cur.biCount=toI(row[1]);
+    } else if(cur.inDispute&&c0==='Adjustment Sub Totals'){
+      const d=toN(row[2]),cr=toN(row[3]);if(d||cr)cur.disputeAmt=d-cr;
+    } else if(cur.inDispute&&c0==='Net Adjusted Amount'){
+      const v=toN(row[2]);if(v!==0)cur.disputeAmt=v;
+    }
+  }
+  if(cur&&cur.finalAmt!=null)blocks.push(build(cur));
+  return blocks;
+}
+
+/* ── CYCLE ASSIGNMENT ───────────────────────────────────────────
+   After all files parsed, assign cycles.
+   If cycleFromName set (NTSLERODDMMYY_NC pattern) → use it directly.
+   Otherwise assign C1-C4 by block order per date.
+─────────────────────────────────────────────────────────────── */
+function assignCycles(blocks){
+  // Separate: blocks with known cycle vs unknown
+  const result=[];
+  const needAssign=[];
+  for(const b of blocks){
+    if(b.cycleFromName){ result.push({...b,cycle:b.cycleFromName}); }
+    else needAssign.push(b);
+  }
+  // Assign cycles for needAssign by date order
+  const ctr={};
+  for(const b of needAssign.sort((a,b)=>a.txnDate-b.txnDate)){
+    const k=fmtD(b.txnDate); ctr[k]=(ctr[k]||0)+1;
+    result.push({...b,cycle:`C${ctr[k]}`});
+  }
+  return result.sort((a,b)=>a.txnDate-b.txnDate||a.cycle.localeCompare(b.cycle));
+}
+
+/* ── BUILD DERIVED FIELDS (control sheet formulas) ──────────── */
+function build(cur){
+  const atmFee  = (cur.atmFee!=null && cur.atmFee!==0) ? cur.atmFee : (cur.atmCount*19);
+  const atmGST  = r2(atmFee*0.18);
+  const atmTot  = r2(atmFee+atmGST);
+  const biFee   = r2(cur.biCount*6);
+  const biGST   = r2(biFee*0.18);
+  const biTot   = r2(biFee+biGST);
+  const mFee    = r2(cur.microAmt*0.005);
+  const mGST    = r2(mFee*0.18);
+  const mTot    = r2(mFee+mGST);
+  const swCnt   = cur.atmCount+cur.biCount+cur.microCount;
+  const swFee   = r4(swCnt*0.30);
+  const swGST   = r4(swFee*0.18);
+  const swTot   = r4(swFee+swGST);
+  const disp    = cur.disputeAmt||0;
+  // X = D+G+M+Q+U−W+K
+  const settTot = r4(cur.atmAmt+atmTot+cur.microAmt+mTot+swTot-disp+biTot);
+  return{
+    txnDate:cur.txnDate,finalAmt:cur.finalAmt,settTot,
+    atmCount:cur.atmCount,atmAmt:cur.atmAmt,atmFee,atmFeeGST:atmGST,atmTotFee:atmTot,
+    biCount:cur.biCount,biTot,
+    microCount:cur.microCount,microAmt:cur.microAmt,mFee,mGST,mTot,
+    swCnt,swFee,swGST,swTot,disp,
+    cycleFromName:cur.cycleFromName||null
+  };
+}
+
+/* ── HELPERS: date extraction, filename decode ─────────────── */
+function extractDate(s, row){
+  // DD/MM/YYYY
+  let m=s.match(/as on\s+(\d{2})\/(\d{2})\/(\d{4})/i);
+  if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  // DD-MM-YYYY
+  m=s.match(/as on\s+(\d{2})-(\d{2})-(\d{4})/i);
+  if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  // YYYY-MM-DD
+  m=s.match(/as on\s+(\d{4})-(\d{2})-(\d{2})/i);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  // DD MMM YYYY
+  m=s.match(/as on\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/i);
+  if(m){const mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};const mn=mo[m[2].toLowerCase()];if(mn!==undefined)return new Date(+m[3],mn,+m[1]);}
+  // Fallback: Date object in row cells
+  if(row){for(const c of row){if(c instanceof Date&&c.getFullYear()>2000)return c;}}
+  return null;
+}
+
+function dateFromFilename(fname){
+  // NTSLERODDMMYY_NC or NTSLERODDMMYYYY_NC
+  const m=fname.match(/NTSLERO(\d{2})(\d{2})(\d{2,4})_\d+C/i);
+  if(!m)return null;
+  const dd=+m[1],mm=+m[2];
+  const yy=+m[3]; const yr=yy<100?(yy<50?2000+yy:1900+yy):yy;
+  return new Date(yr,mm-1,dd);
+}
+
+function cycleFromFilename(fname){
+  // NTSLERO010426_1C.xls → C1
+  const m=fname.match(/_(\d+)C\./i);
+  return m?`C${+m[1]}`:null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BANK PARSER
+══════════════════════════════════════════════════════════════════ */
+async function loadBank(file){
+  setSt('stB','<span style="color:var(--yellow)">⏳ Parsing…</span>');
+  BANK=[];
+  try{
+    const buf=await readBuf(file);
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false,blankrows:false});
+
+    let hdr=-1;
+    for(let i=0;i<Math.min(8,rows.length);i++){
+      const r=rows[i].map(v=>v?String(v).toLowerCase().trim():'');
+      if(r.some(v=>v.includes('narrative'))&&r.some(v=>v==='debit')){hdr=i;break;}
+    }
+    if(hdr<0){setSt('stB','<span style="color:var(--red)">✗ Header row not found (need Narrative+Debit columns)</span>');bankOK=false;return;}
+
+    const h=rows[hdr].map(v=>v?String(v).toLowerCase().trim():'');
+    const iN=h.findIndex(v=>v.includes('narrative'));
+    const iD=h.findIndex(v=>v==='debit');
+    const iDt=h.findIndex(v=>v.includes('payment')||v==='date');
+    const iR=h.findIndex(v=>v.includes('remark'));
+
+    for(let i=hdr+1;i<rows.length;i++){
+      const row=rows[i];
+      if(!row||!row[iN])continue;
+      const narr=String(row[iN]).trim();
+      if(iR>=0&&row[iR]&&String(row[iR]).trim().toUpperCase()!=='NFS')continue;
+      if(!narr.toUpperCase().includes('NFS'))continue;
+      const m=narr.replace(/\s+$/,'').match(/_00(\d{8})(\d{2})$/);
+      if(!m)continue;
+      const txnDate=pd8(m[1]);
+      const cycle=`C${+m[2]}`;
+      let settDate=null;
+      const rd=row[iDt];
+      if(rd instanceof Date)settDate=rd;
+      else if(typeof rd==='string'){
+        const rdT=rd.trim();
+        // DD/MM/YYYY
+        const m1=rdT.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(m1)settDate=new Date(+m1[3],+m1[2]-1,+m1[1]);
+        // DD-MM-YYYY
+        else{const m2=rdT.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);if(m2)settDate=new Date(+m2[3],+m2[2]-1,+m2[1]);}
+        // YYYY-MM-DD (ISO)
+        if(!settDate){const m3=rdT.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m3)settDate=new Date(+m3[1],+m3[2]-1,+m3[3]);}
+      } else if(typeof rd==='number')settDate=new Date((rd-25569)*86400000);
+      const deb=(()=>{const v=row[iD];if(v==null)return 0;const s=String(v).replace(/,/g,'').trim();return parseFloat(s)||0;})();
+      if(deb<=0)continue;
+      BANK.push({txnDate,cycle,settDate,bankDebit:r2(deb),narrative:narr});
+    }
+
+    if(!BANK.length){setSt('stB','<span style="color:var(--red)">✗ No NFS rows found. Check Remarks="NFS" and narrative format.</span>');bankOK=false;return;}
+    bankOK=true;
+    document.getElementById('cardB').classList.add('ok');
+    setSt('stB','<span style="color:var(--green)">✓ '+BANK.length+' NFS rows</span>');
+    lg('ok','Bank: '+BANK.length+' rows');
+  }catch(ex){setSt('stB','<span style="color:var(--red)">✗ '+ex.message+'</span>');bankOK=false;}
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RECONCILIATION
+══════════════════════════════════════════════════════════════════ */
+function runRecon(){
+  const thresh=parseFloat(document.getElementById('thresh').value)||1;
+  document.getElementById('kThr').textContent=thresh;
+
+  const allNTSL = assignCycles(NTSL);
+  const mf = document.getElementById('selMo').value;
+  const ntsl = mf ? allNTSL.filter(b=>fmtMo(b.txnDate)===mf) : allNTSL;
+  if(!ntsl.length){lg('warn','No NTSL after filter');return;}
+
+  const scopeMos = new Set(ntsl.map(b=>fmtMo(b.txnDate)));
+  const bankIn   = BANK.filter(b=>scopeMos.has(fmtMo(b.txnDate)));
+  CARRY = BANK.filter(b=>!scopeMos.has(fmtMo(b.txnDate)));
+
+  const bankMap={};
+  for(const b of bankIn){ bankMap[`${fmtD(b.txnDate)}_${b.cycle}`]=b; }
+
+  RECON=ntsl.map(n=>{
+    const bk=bankMap[`${fmtD(n.txnDate)}_${n.cycle}`]||null;
+    const ntslAmt=n.finalAmt, bankAmt=bk?bk.bankDebit:null;
+    const diff=bankAmt!=null?r4(ntslAmt-bankAmt):null;
+    const status=bankAmt==null?'PENDING':Math.abs(diff)<=thresh?'MATCHED':diff<0?'EXCESS DEBIT':'DEFICIT';
+    const rawSD=bk?bk.settDate:addD(n.txnDate,1);
+    const settDate=rawSD instanceof Date?rawSD:(typeof rawSD==='string'?parseImportDate(rawSD):addD(n.txnDate,1));
+    return{...n,cycle:n.cycle,settDate,
+      ntslFinal:ntslAmt,bankAmt,diff,status,narrative:bk?bk.narrative:null};
+  });
+
+  // Daily
+  const dm={};
+  for(const r of RECON){
+    const k=fmtD(r.txnDate);
+    if(!dm[k])dm[k]={txnDate:r.txnDate,settDate:r.settDate,
+      atmCount:0,atmAmt:0,atmTotFee:0,microAmt:0,swCnt:0,settTot:0,bankTot:0,
+      hasBank:false,hP:false,hE:false,hD:false};
+    const d=dm[k];
+    d.atmCount+=r.atmCount;d.atmAmt+=r.atmAmt;d.atmTotFee+=r.atmTotFee;
+    d.microAmt+=r.microAmt;d.swCnt+=r.swCnt;
+    d.settTot=r4(d.settTot+r.settTot);
+    if(r.bankAmt!=null){d.bankTot=r4(d.bankTot+r.bankAmt);d.hasBank=true;}
+    if(r.status==='PENDING')d.hP=true;
+    if(r.status==='EXCESS DEBIT')d.hE=true;
+    if(r.status==='DEFICIT')d.hD=true;
+  }
+  DAILY=Object.values(dm).sort((a,b)=>a.txnDate-b.txnDate).map(d=>{
+    const diff=d.hasBank?r4(d.settTot-d.bankTot):null;
+    const dbt=r2(RECON.filter(r=>fmtD(r.txnDate)===fmtD(d.txnDate)&&r.bankAmt!=null).reduce((s,r)=>s+r.bankAmt,0));
+    const status=!d.hasBank?'PENDING':d.hE?'EXCESS DEBIT':d.hD?'DEFICIT':d.hP?'PARTIAL':'MATCHED';
+    return{...d,diff,dbt,status};
+  });
+
+  lg('info',`Recon: ${RECON.length} | M:${RECON.filter(r=>r.status==='MATCHED').length} P:${RECON.filter(r=>r.status==='PENDING').length} E:${RECON.filter(r=>r.status==='EXCESS DEBIT').length} D:${RECON.filter(r=>r.status==='DEFICIT').length}`);
+
+  updateKPIs(thresh); buildDtFilter(); renderAll();
+  document.getElementById('kpiRow').style.display='grid';
+  document.getElementById('resArea').style.display='block';
+  document.getElementById('btnExp').disabled=false;
+  document.getElementById('runTs').textContent=`Run: ${new Date().toLocaleTimeString()}`;
+  const ds=RECON.map(r=>r.txnDate);
+  const mn=new Date(Math.min(...ds)),mx=new Date(Math.max(...ds));
+  document.getElementById('tagPd').textContent=mn.getMonth()===mx.getMonth()
+    ?`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mn.getMonth()]} ${mn.getFullYear()}`
+    :`${fmtD(mn)} – ${fmtD(mx)}`;
+}
+
+function updateKPIs(t){
+  const ma=RECON.filter(r=>r.status==='MATCHED'),
+        pe=RECON.filter(r=>r.status==='PENDING'),
+        di=RECON.filter(r=>r.status==='EXCESS DEBIT'||r.status==='DEFICIT');
+  const nT=r2(RECON.reduce((a,r)=>a+r.ntslFinal,0));
+  const bT=r2(RECON.filter(r=>r.bankAmt!=null).reduce((a,r)=>a+r.bankAmt,0));
+  s('kTot',RECON.length);s('kDays',`${new Set(RECON.map(r=>fmtD(r.txnDate))).size} days`);
+  s('kMat',ma.length);s('kMatA','₹'+f2(ma.reduce((a,r)=>a+r.ntslFinal,0)));
+  s('kPnd',pe.length);s('kPndA','₹'+f2(pe.reduce((a,r)=>a+r.ntslFinal,0)));
+  s('kDif',di.length);s('kDifA',di.length?'₹'+f2(di.reduce((a,r)=>a+Math.abs(r.diff||0),0)):'-');
+  s('kNTSL','₹'+f2(nT));s('kNs',RECON.length+' cycles');
+  s('kBnk','₹'+f2(bT));s('kBs',RECON.filter(r=>r.bankAmt!=null).length+' cycles');
+  s('tbCy',RECON.length);s('tbDy',DAILY.length);s('tbDf',di.length);s('tbPd',pe.length);s('tbCr',CARRY.length);
+  document.getElementById('tbDf').className='tbdg '+(di.length?'dg-red':'dg-green');
+  document.getElementById('tbPd').className='tbdg '+(pe.length?'dg-blue':'dg-green');
+  document.getElementById('tbCr').className='tbdg '+(CARRY.length?'dg-orange':'dg-gray');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════════════════════════ */
+function rCycle(){
+  const q=document.getElementById('cyQ').value.toLowerCase();
+  const sf=document.getElementById('cySt').value;
+  const df=document.getElementById('cyDt').value;
+  let rows=RECON.filter(r=>{
+    if(sf&&r.status!==sf)return false;
+    if(df&&fmtD(r.txnDate)!==df)return false;
+    if(q&&!`${fmtD(r.txnDate)} ${r.cycle} ${r.status}`.toLowerCase().includes(q))return false;
+    return true;
+  });
+  if(SS.col)rows=sortR(rows,SS.col,SS.dir);
+  document.getElementById('cyBody').innerHTML=rows.map(r=>`
+    <tr class="${rwC(r.status)}">
+      <td>${fmtD(r.txnDate)}</td><td>${fmtD(r.settDate)}</td>
+      <td class="ctr"><b>${r.cycle}</b></td>
+      <td class="num">${r.atmCount}</td><td class="num">${f2(r.atmAmt)}</td>
+      <td class="num">${f2(r.atmTotFee)}</td>
+      <td class="num">${r.biCount>0?r.biCount:'—'}</td>
+      <td class="num">${r.biTot>0?f2(r.biTot):'—'}</td>
+      <td class="num">${r.microCount>0?r.microCount:'—'}</td>
+      <td class="num">${r.microAmt>0?f2(r.microAmt):'—'}</td>
+      <td class="num">${r.mTot>0?f2(r.mTot):'—'}</td>
+      <td class="num">${r.swCnt}</td><td class="num">${f2(r.swTot)}</td>
+      <td class="num">${r.disp>0?f2(r.disp):'—'}</td>
+      <td class="num"><b>${f2(r.ntslFinal)}</b></td>
+      <td class="num">${r.bankAmt!=null?f2(r.bankAmt):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="num ${dC(r.diff)}">${r.diff!=null?f4(r.diff):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="ctr">${bdg(r.status)}</td>
+    </tr>`).join('');
+  s('cyCnt',rows.length+'/'+RECON.length);
+  s('cyFt','NTSL ₹'+f2(rows.reduce((a,r)=>a+r.ntslFinal,0))+' | Bank ₹'+f2(rows.filter(r=>r.bankAmt!=null).reduce((a,r)=>a+r.bankAmt,0)));
+}
+
+function rDaily(){
+  const q=document.getElementById('dyQ').value.toLowerCase();
+  let rows=DAILY.filter(r=>!q||fmtD(r.txnDate).toLowerCase().includes(q));
+  document.getElementById('dyBody').innerHTML=rows.map(r=>`
+    <tr>
+      <td><b>${fmtD(r.txnDate)}</b></td><td>${fmtD(r.settDate)}</td>
+      <td class="num">${r.atmCount}</td><td class="num">${f2(r.atmAmt)}</td>
+      <td class="num">${f2(r.atmTotFee)}</td>
+      <td class="num">${r.microAmt>0?f2(r.microAmt):'—'}</td>
+      <td class="num">${r.swCnt}</td>
+      <td class="num"><b>${f2(r.settTot)}</b></td>
+      <td class="num">${r.hasBank?f2(r.bankTot):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="num ${dC(r.diff)}">${r.diff!=null?f4(r.diff):'—'}</td>
+      <td class="ctr">${bdg(r.status)}</td>
+      <td class="num">${r.hasBank?'<b>'+f2(r.dbt)+'</b>':'—'}</td>
+    </tr>`).join('')+
+  `<tr class="gt">
+    <td colspan="2"><b>GRAND TOTAL</b></td>
+    <td class="num"><b>${rows.reduce((a,r)=>a+r.atmCount,0)}</b></td>
+    <td class="num"><b>${f2(rows.reduce((a,r)=>a+r.atmAmt,0))}</b></td>
+    <td class="num"><b>${f2(rows.reduce((a,r)=>a+r.atmTotFee,0))}</b></td>
+    <td class="num"><b>${f2(rows.reduce((a,r)=>a+r.microAmt,0))}</b></td>
+    <td class="num"><b>${rows.reduce((a,r)=>a+r.swCnt,0)}</b></td>
+    <td class="num"><b>${f2(rows.reduce((a,r)=>a+r.settTot,0))}</b></td>
+    <td class="num"><b>${f2(rows.filter(r=>r.hasBank).reduce((a,r)=>a+r.bankTot,0))}</b></td>
+    <td class="num ${dC(rows.reduce((a,r)=>a+(r.diff||0),0))}"><b>${f4(rows.reduce((a,r)=>a+(r.diff||0),0))}</b></td>
+    <td></td>
+    <td class="num"><b>${f2(rows.filter(r=>r.hasBank).reduce((a,r)=>a+r.dbt,0))}</b></td>
+  </tr>`;
+  s('dyCnt',rows.length+' days');
+  s('dyFt','NTSL ₹'+f2(rows.reduce((a,r)=>a+r.settTot,0))+' | Bank ₹'+f2(rows.filter(r=>r.hasBank).reduce((a,r)=>a+r.bankTot,0)));
+}
+
+function rDiffs(){
+  const t=parseFloat(document.getElementById('thresh').value)||1;
+  const di=RECON.filter(r=>r.status==='EXCESS DEBIT'||r.status==='DEFICIT');
+  const el=document.getElementById('difNote');
+  if(!di.length){
+    el.className='note note-ok';el.textContent=`✓ No differences above ₹${t}. All ${RECON.filter(r=>r.status==='MATCHED').length} matched cycles reconciled.`;
+    document.getElementById('dfBody').innerHTML=`<tr><td colspan="8" class="ctr" style="padding:30px;color:var(--green)">✓ Fully reconciled</td></tr>`;
+    s('dfFt','');return;
+  }
+  el.className='note note-err';el.textContent=`⚠ ${di.length} cycle(s) with |diff| > ₹${t}. Investigate with bank/NTSL team.`;
+  document.getElementById('dfBody').innerHTML=di.map(r=>`
+    <tr class="${r.status==='EXCESS DEBIT'?'rw-e':'rw-d'}">
+      <td>${fmtD(r.txnDate)}</td><td>${fmtD(r.settDate)}</td>
+      <td class="ctr"><b>${r.cycle}</b></td>
+      <td class="num">${f2(r.ntslFinal)}</td>
+      <td class="num">${r.bankAmt!=null?f2(r.bankAmt):'—'}</td>
+      <td class="num ${dC(r.diff)}">${f4(r.diff)}</td>
+      <td class="ctr">${bdg(r.status)}</td>
+      <td>Investigate with bank/NTSL</td>
+    </tr>`).join('');
+  s('dfFt',di.length+' items | ₹'+f2(di.reduce((a,r)=>a+Math.abs(r.diff||0),0)));
+}
+
+function rPend(){
+  const pe=RECON.filter(r=>r.status==='PENDING');
+  if(!pe.length){document.getElementById('pdBody').innerHTML=`<tr><td colspan="6" class="ctr" style="padding:24px;color:var(--text3)">No pending items</td></tr>`;s('pdFt','');return;}
+  document.getElementById('pdBody').innerHTML=pe.map(r=>`
+    <tr class="rw-p">
+      <td>${fmtD(r.txnDate)}</td><td>${fmtD(r.settDate)}</td>
+      <td class="ctr"><b>${r.cycle}</b></td>
+      <td class="num"><b>${f2(r.ntslFinal)}</b></td>
+      <td style="font-family:var(--mono);font-size:11px">NFS EROUTE TECH PVT LTD_00${cmpD(r.txnDate)}0${r.cycle.slice(1)}</td>
+      <td>T+1 — verify on ${fmtD(r.settDate)}</td>
+    </tr>`).join('');
+  s('pdFt',pe.length+' cycles | ₹'+f2(pe.reduce((a,r)=>a+r.ntslFinal,0)));
+}
+
+function rCarry(){
+  const show=document.getElementById('chkCarry').checked;
+  const data=show?CARRY:[];
+  if(!data.length){document.getElementById('crBody').innerHTML=`<tr><td colspan="6" class="ctr" style="padding:24px;color:var(--text3)">${show?'No carry-over items':'Disabled'}</td></tr>`;s('crFt','');return;}
+  document.getElementById('crBody').innerHTML=data.map(r=>`
+    <tr class="rw-c">
+      <td>${fmtD(r.txnDate)}</td><td>${r.settDate?fmtD(r.settDate):'—'}</td>
+      <td class="ctr"><b>${r.cycle}</b></td>
+      <td class="num">${f2(r.bankDebit)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.narrative}</td>
+      <td>Prior-month settlement</td>
+    </tr>`).join('');
+  s('crFt',data.length+' entries | ₹'+f2(data.reduce((a,r)=>a+r.bankDebit,0)));
+}
+
+function rSum(){
+  const t=parseFloat(document.getElementById('thresh').value)||1;
+  const ma=RECON.filter(r=>r.status==='MATCHED'),pe=RECON.filter(r=>r.status==='PENDING');
+  const ex=RECON.filter(r=>r.status==='EXCESS DEBIT'),de=RECON.filter(r=>r.status==='DEFICIT');
+  const nT=r2(RECON.reduce((a,r)=>a+r.ntslFinal,0));
+  const bT=r2(RECON.filter(r=>r.bankAmt!=null).reduce((a,r)=>a+r.bankAmt,0));
+  const rows=[
+    ['Period',document.getElementById('tagPd').textContent,''],
+    ['Total NTSL Cycles',`${RECON.length} (${new Set(RECON.map(r=>fmtD(r.txnDate))).size} days)`,''],
+    ['Total ATM Transactions',RECON.reduce((a,r)=>a+r.atmCount,0).toLocaleString('en-IN'),''],
+    ['Total ATM Amount','₹'+f2(RECON.reduce((a,r)=>a+r.atmAmt,0)),''],
+    ['Total NTSL Settlement','₹'+f2(nT),''],
+    ['Total Bank Debited','₹'+f2(bT),''],
+    ['Net Difference','₹'+f4(nT-bT),''],
+    ['Threshold','₹'+t,''],
+    ['Matched',`${ma.length} | ₹${f2(ma.reduce((a,r)=>a+r.ntslFinal,0))}`,ma.length===RECON.length-pe.length?'good':''],
+    ['Pending (T+1)',`${pe.length} | ₹${f2(pe.reduce((a,r)=>a+r.ntslFinal,0))}  → expected ${pe.length?fmtD(pe[0].settDate):'—'}`,''],
+    ['Excess Debit (Bank > NTSL)',`${ex.length} | ${ex.length?'₹'+f2(ex.reduce((a,r)=>a+Math.abs(r.diff||0),0)):'-'}`,ex.length?'bad':'good'],
+    ['Deficit (NTSL > Bank)',`${de.length} | ${de.length?'₹'+f2(de.reduce((a,r)=>a+Math.abs(r.diff||0),0)):'-'}`,de.length?'bad':'good'],
+    ['Carry-over Entries',`${CARRY.length} | ₹${f2(CARRY.reduce((a,r)=>a+r.bankDebit,0))} (outside NTSL month)`,''],
+    ['Overall Status',(!ex.length&&!de.length)?(pe.length?'✓ RECONCILED (T+1 pending)':'✓ FULLY RECONCILED'):`⚠ ${ex.length+de.length} DIFFERENCES`,(!ex.length&&!de.length)?'good':'bad'],
+  ];
+  document.getElementById('sumTbl').innerHTML=rows.map(([k,v,c])=>`<tr><td class="sk">${k}</td><td class="sv ${c}">${v}</td></tr>`).join('');
+}
+
+function renderAll(){rCycle();rDaily();rDiffs();rPend();rCarry();rSum();}
+
+/* ══════════════════════════════════════════════════════════════════
+   EXPORT EXCEL
+══════════════════════════════════════════════════════════════════ */
+async function exportExcel(){
+  if(!RECON.length)return;
+  if(typeof window.ExcelJSWorkbook==='undefined'){lg('err','ExcelJS not loaded yet — wait 2s and retry');return;}
+  const t=parseFloat(document.getElementById('thresh').value)||1;
+  const tag=document.getElementById('tagPd').textContent.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_-]/g,'');
+  lg('info','Generating Excel…');
+
+  const wb=new window.ExcelJSWorkbook();
+  wb.creator='NFS Recon Tool v5';
+  wb.created=new Date();
+
+  /* ── Colour palette ── */
+  const P={
+    HDR1:'7B3F00',HDR2:'A0522D',HDR3:'D2956A',
+    DATA:'FFF8F0',ALT:'FAE5C8',
+    BANK:'D8F0DA',DIFF:'FFF0B0',
+    GT:'5C2E00',SUB:'3B1A00',
+    MTCH:'C8E6C9',PEND:'DDEEFF',DFCT:'FFCCCC',
+    WHT:'FFFFFF',GLD:'FFE0B2',BRN:'3E1A00',
+  };
+
+  /* ── Style helpers ── */
+  function fill(hex){return{type:'pattern',pattern:'solid',fgColor:{argb:'FF'+hex}};}
+  function font(hex,bold,sz){return{name:'Arial',size:sz||9,bold:!!bold,color:{argb:'FF'+hex}};}
+  function border(col){const s={style:'thin',color:{argb:'FF'+col}};return{top:s,bottom:s,left:s,right:s};}
+  function align(h,v){return{horizontal:h||'center',vertical:v||'middle',wrapText:false};}
+  function applyHdr(row,bgHex,fgHex,bdrHex){
+    row.eachCell({includeEmpty:true},c=>{
+      c.fill=fill(bgHex);c.font=font(fgHex,true,9);
+      c.border=border(bdrHex||bgHex);c.alignment=align('center');
+    });
+  }
+  function styleCell(cell,bgHex,fgHex,bold,numFmt,hAlign){
+    cell.fill=fill(bgHex);
+    cell.font=font(fgHex||P.BRN,bold,9);
+    cell.border=border('C49A6C');
+    cell.alignment=align(hAlign||'center');
+    if(numFmt)cell.numFmt=numFmt;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SHEET 1 — NFS_Recon_Cycle
+  ════════════════════════════════════════════════════════ */
+  const ws1=wb.addWorksheet('NFS_Recon_Cycle');
+  ws1.views=[{state:'frozen',xSplit:2,ySplit:9,activeCell:'C10'}];
+
+  // Column widths (28 cols A–AB)
+  const cw=[13,5,9,13,13,10,11,8,12,10,11,6,13,13,12,10,11,9,12,10,11,6,11,13,13,14,12,14];
+  ws1.columns=cw.map(w=>({width:w}));
+
+  // Row 7 — group headers
+  const r7=ws1.getRow(7);
+  const grpHdrs=[
+    [1,1,'Date'],[2,1,'Cycle'],
+    [3,5,'Issuer WDL Approved Fee'],[8,4,'Balance Inquiry'],
+    [12,6,'Micro ATM'],[18,4,'Switching Fee'],
+    [22,2,'Disputes'],[24,1,'Settlement Total'],
+    [25,1,'Settlement from Bank'],[26,1,'Settlement Date'],
+    [27,1,'Difference'],[28,1,'Daily Bank Total'],
+  ];
+  for(const [col,span,lbl] of grpHdrs){
+    r7.getCell(col).value=lbl;
+    if(span>1) ws1.mergeCells(7,col,7,col+span-1);
+  }
+  applyHdr(r7,P.HDR1,P.GLD,'7B3F00');
+  r7.height=22;
+
+  // Row 8 — sub-group headers
+  const r8=ws1.getRow(8);
+  [[3,'ATM'],[8,'Balance Inquiry'],[12,'Micro ATM'],[18,'Switching Fee'],[22,'Disputes']].forEach(([c,l])=>r8.getCell(c).value=l);
+  applyHdr(r8,P.HDR2,P.WHT,'A0522D');r8.height=16;
+
+  // Row 9 — column detail headers
+  const colHdrs=['Date','Cycle','Txn Count','Txn Amount','Fee(ex-GST)','GST','Total Fee','Txn Count','Fee(ex-GST)','GST','Total Fee','Count','Total Amt','Amt(>100)','Fee(ex-GST)','GST','Total Fee','Total Count','Fee(ex-GST)','GST','Total Fee','Count','Amount','Settlement Total','Bank Amount','Settlement Date','Difference','Daily Bank Total'];
+  const r9=ws1.getRow(9);
+  colHdrs.forEach((h,i)=>r9.getCell(i+1).value=h);
+  applyHdr(r9,P.HDR3,P.BRN,'D2956A');r9.height=28;
+
+  // Data rows
+  const DR=10;
+  let prevDk=null;
+  for(let i=0;i<RECON.length;i++){
+    const r=RECON[i];
+    const rn=DR+i;
+    const dk=fmtD(r.txnDate);
+    const isF=dk!==prevDk;prevDk=dk;
+    const bg=i%2===0?P.DATA:P.ALT;
+    const row=ws1.getRow(rn);
+
+    function dc(col,val,bgH,fgH,bold,nf,ha){
+      const c=row.getCell(col);
+      c.value=val;styleCell(c,bgH||bg,fgH,bold,nf,ha);
+    }
+    function fc(col,formula,bgH,fgH,bold,nf){
+      const c=row.getCell(col);
+      c.value={formula:formula};styleCell(c,bgH||bg,fgH,bold,nf);
+    }
+
+    // A: date — only first cycle of day
+    dc(1,isF?r.txnDate:null,bg,P.BRN,false,'DD-MMM-YYYY','left');
+    dc(2,r.cycle,bg,P.BRN,false,null,'center');
+    dc(3,r.atmCount,bg,P.BRN,false,'#,##0');
+    dc(4,r.atmAmt,bg,P.BRN,false,'#,##0.00');
+    fc(5,`C${rn}*19`,bg,P.BRN,false,'#,##0.00');
+    fc(6,`E${rn}*0.18`,bg,P.BRN,false,'#,##0.00');
+    fc(7,`E${rn}+F${rn}`,bg,P.BRN,false,'#,##0.00');
+    dc(8,r.biCount||0,bg,P.BRN,false,'#,##0');
+    fc(9,`H${rn}*6`,bg,P.BRN,false,'#,##0.00');
+    fc(10,`I${rn}*0.18`,bg,P.BRN,false,'#,##0.00');
+    fc(11,`I${rn}+J${rn}`,bg,P.BRN,false,'#,##0.00');
+    dc(12,r.microCount||0,bg,P.BRN,false,'#,##0');
+    dc(13,r.microAmt||0,bg,P.BRN,false,'#,##0.00');
+    fc(14,`M${rn}`,bg,P.BRN,false,'#,##0.00');
+    fc(15,`N${rn}*0.005`,bg,P.BRN,false,'#,##0.00');
+    fc(16,`O${rn}*0.18`,bg,P.BRN,false,'#,##0.00');
+    fc(17,`O${rn}+P${rn}`,bg,P.BRN,false,'#,##0.00');
+    fc(18,`C${rn}+L${rn}+H${rn}`,bg,P.BRN,false,'#,##0');
+    fc(19,`R${rn}*0.3`,bg,P.BRN,false,'#,##0.00');
+    fc(20,`S${rn}*0.18`,bg,P.BRN,false,'#,##0.00');
+    fc(21,`S${rn}+T${rn}`,bg,P.BRN,false,'#,##0.00');
+    dc(22,r.disp>0?1:0,bg,P.BRN,false,'#,##0');
+    dc(23,r.disp||0,bg,P.BRN,false,'#,##0.00');
+    fc(24,`D${rn}+G${rn}+M${rn}+Q${rn}+U${rn}-W${rn}+K${rn}`,bg,P.BRN,false,'#,##0.00');
+    // Bank amount — only if matched
+    dc(25,r.bankAmt!=null?r.bankAmt:null,P.BANK,P.BRN,false,'#,##0.00');
+    // Settlement date — ONLY if bank amount exists
+    dc(26,r.bankAmt!=null&&r.settDate instanceof Date?r.settDate:null,P.BANK,P.BRN,false,'DD-MMM-YYYY');
+    // Difference — only if bank matched
+    const diffBg=r.diff!=null&&Math.abs(r.diff)>t?P.DFCT:P.DIFF;
+    const diffFg=r.diff!=null&&Math.abs(r.diff)>t?'CC0000':P.BRN;
+    if(r.bankAmt!=null) fc(27,`X${rn}-Y${rn}`,diffBg,diffFg,r.diff!=null&&Math.abs(r.diff)>t,'#,##0.00');
+    else dc(27,null,bg,P.BRN);
+    // Daily bank total — first cycle of date group only
+    if(isF){
+      let lastRn=rn;
+      for(let j=i+1;j<RECON.length;j++){if(fmtD(RECON[j].txnDate)===dk)lastRn=DR+j;else break;}
+      fc(28,`SUM(Y${rn}:Y${lastRn})`,P.DIFF,'5C2E00',true,'#,##0.00');
+    } else dc(28,null,bg,P.BRN);
+    row.commit();
+  }
+
+  // Grand total row
+  const GR=DR+RECON.length;
+  const gRow=ws1.getRow(GR);
+  gRow.getCell(1).value='GRAND TOTAL';
+  styleCell(gRow.getCell(1),P.GT,P.GLD,true);
+  styleCell(gRow.getCell(2),P.GT,P.GLD,true);
+  const gtCols=[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28];
+  const gtNF={3:'#,##0',8:'#,##0',12:'#,##0',18:'#,##0',22:'#,##0'};
+  for(const c of gtCols){
+    const cl=ws1.getColumn(c).letter;
+    const cell=gRow.getCell(c);
+    cell.value={formula:`SUBTOTAL(9,${cl}${DR}:${cl}${GR-1})`};
+    styleCell(cell,P.GT,P.GLD,true,gtNF[c]||'#,##0.00');
+  }
+  styleCell(gRow.getCell(26),P.GT,P.GLD,true); // sett date blank in GT
+  gRow.commit();
+
+  // Subtotal rows 3,4
+  for(const sr of [3,4]){
+    const sRow=ws1.getRow(sr);
+    for(let c=1;c<=28;c++){
+      const cell=sRow.getCell(c);
+      if(c<=2){cell.value='';styleCell(cell,P.SUB,P.GLD,true);}
+      else if(c===26){cell.value='';styleCell(cell,P.SUB,P.GLD,true);}
+      else{
+        const cl=ws1.getColumn(c).letter;
+        cell.value={formula:`SUBTOTAL(9,${cl}${DR}:${cl}${GR-1})`};
+        styleCell(cell,P.SUB,P.GLD,true,'#,##0.00');
+      }
+    }
+    sRow.commit();
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SHEET 2 — Daily Summary
+  ════════════════════════════════════════════════════════ */
+  const ws2=wb.addWorksheet('Daily_Summary');
+  ws2.views=[{state:'frozen',xSplit:0,ySplit:1,activeCell:'A2'}];
+  ws2.columns=[13,13,9,13,12,12,8,14,13,12,12,14].map(w=>({width:w}));
+  const dHdrs=['Date','Sett Date','ATM Count','ATM Amt','ATM Fee+GST','Micro Amt','Sw Count','Sett Total','Bank Total','Difference','Status','Daily Bank Total'];
+  const dHdrRow=ws2.getRow(1);
+  dHdrs.forEach((h,i)=>{dHdrRow.getCell(i+1).value=h;});
+  applyHdr(dHdrRow,P.HDR1,P.GLD,'7B3F00');dHdrRow.height=22;dHdrRow.commit();
+
+  DAILY.forEach((d,i)=>{
+    const row=ws2.getRow(i+2);
+    const bg2=i%2===0?P.DATA:P.ALT;
+    const stBg=d.status==='MATCHED'?P.MTCH:d.status==='PENDING'?P.PEND:P.DFCT;
+    const stFg=d.status==='MATCHED'?'1B5E20':d.status==='PENDING'?'0D47A1':'CC0000';
+    function d2(col,val,bg,fg,bold,nf,ha){const c=row.getCell(col);c.value=val;styleCell(c,bg||bg2,fg,bold,nf,ha);}
+    d2(1,d.txnDate,bg2,P.BRN,false,'DD-MMM-YYYY','left');
+    d2(2,d.settDate instanceof Date?d.settDate:null,bg2,P.BRN,false,'DD-MMM-YYYY','left');
+    d2(3,d.atmCount,bg2,P.BRN,false,'#,##0');
+    d2(4,d.atmAmt,bg2,P.BRN,false,'#,##0.00');
+    d2(5,d.atmTotFee,bg2,P.BRN,false,'#,##0.00');
+    d2(6,d.microAmt,bg2,P.BRN,false,'#,##0.00');
+    d2(7,d.swCnt,bg2,P.BRN,false,'#,##0');
+    d2(8,d.settTot,bg2,P.BRN,false,'#,##0.00');
+    d2(9,d.hasBank?d.bankTot:null,P.BANK,P.BRN,false,'#,##0.00');
+    const ddf=d.diff!=null&&Math.abs(d.diff)>t;
+    d2(10,d.diff!=null?d.diff:null,ddf?P.DFCT:P.DIFF,ddf?'CC0000':P.BRN,ddf,'#,##0.00');
+    d2(11,d.status,stBg,stFg,true);
+    d2(12,d.hasBank?d.dbt:null,P.DIFF,'5C2E00',true,'#,##0.00');
+    row.commit();
+  });
+
+  // GT row sheet2
+  const gt2=DAILY.length+2;
+  const gt2Row=ws2.getRow(gt2);
+  gt2Row.getCell(1).value='GRAND TOTAL';styleCell(gt2Row.getCell(1),P.GT,P.GLD,true);
+  [2,3,4,5,6,7,8,9,10,12].forEach(c=>{
+    const cl=ws2.getColumn(c).letter;
+    const cell=gt2Row.getCell(c);
+    if(c===2){cell.value='';styleCell(cell,P.GT,P.GLD,true);}
+    else{cell.value={formula:`SUM(${cl}2:${cl}${gt2-1})`};styleCell(cell,P.GT,P.GLD,true,'#,##0.00');}
+  });
+  gt2Row.getCell(11).value='';styleCell(gt2Row.getCell(11),P.GT,P.GLD,true);
+  gt2Row.commit();
+
+  /* ════════════════════════════════════════════════════════
+     SHEET 3 — Exceptions (plain)
+  ════════════════════════════════════════════════════════ */
+  const ws3=wb.addWorksheet('Exceptions');
+  const di=RECON.filter(r=>r.status==='EXCESS DEBIT'||r.status==='DEFICIT');
+  const pe=RECON.filter(r=>r.status==='PENDING');
+  const exc=[
+    [`NFS Recon — Exceptions | Threshold ₹${t}`],[],
+    ['DIFFERENCES (|diff| > ₹'+t+')'],
+    ['Txn Date','Sett Date','Cycle','NTSL (₹)','Bank (₹)','Diff (₹)','Type'],
+    ...(di.length?di.map(r=>[r.txnDate instanceof Date?r.txnDate:fmtD(r.txnDate),r.bankAmt!=null&&r.settDate instanceof Date?r.settDate:'',r.cycle,r.ntslFinal,r.bankAmt??'',r.diff,r.status]):[['No differences']]),
+    [],['Exposure:',r2(di.reduce((a,r)=>a+Math.abs(r.diff||0),0))],[],
+    ['PENDING (T+1)'],
+    ['Txn Date','Expected Sett','Cycle','NTSL (₹)','Expected Narrative'],
+    ...pe.map(r=>[r.txnDate instanceof Date?r.txnDate:fmtD(r.txnDate),'',r.cycle,r.ntslFinal,`NFS EROUTE TECH PVT LTD_00${cmpD(r.txnDate)}0${r.cycle.slice(1)}`]),
+    [],['Pending Total:',r2(pe.reduce((a,r)=>a+r.ntslFinal,0))],[],
+    ['SUMMARY'],
+    ['Total Cycles',RECON.length],['Matched',RECON.filter(r=>r.status==='MATCHED').length],
+    ['Pending',pe.length],['Differences',di.length],
+    ['NTSL Total',r2(RECON.reduce((a,r)=>a+r.ntslFinal,0))],
+    ['Bank Total',r2(RECON.filter(r=>r.bankAmt!=null).reduce((a,r)=>a+r.bankAmt,0))],
+    ['Status',(!di.length&&!pe.length)?'FULLY RECONCILED':(!di.length?'RECONCILED (T+1 pending)':'DIFFERENCES FOUND')],
+  ];
+  exc.forEach(row=>ws3.addRow(row));
+
+  if(CARRY.length){
+    const ws4=wb.addWorksheet('Carry_Over');
+    [['Txn Date','Sett Date','Cycle','Bank Debit','Narrative'],
+     ...CARRY.map(r=>[r.txnDate instanceof Date?r.txnDate:fmtD(r.txnDate),r.settDate instanceof Date?r.settDate:'',r.cycle,r.bankDebit,r.narrative||'']),
+     ['TOTAL','','',r2(CARRY.reduce((a,r)=>a+r.bankDebit,0)),'']
+    ].forEach(row=>ws4.addRow(row));
+  }
+
+  /* ════════════════════════════════════════════════════════
+     DOWNLOAD
+  ════════════════════════════════════════════════════════ */
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`NFS_Recon_${tag}_${cmpD(new Date())}.xlsx`;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+  lg('ok','Exported NFS_Recon_'+tag+'.xlsx');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SORT / TABS / UTILS
+══════════════════════════════════════════════════════════════════ */
+function srt(col){
+  if(SS.col===col)SS.dir*=-1;else{SS.col=col;SS.dir=1;}
+  document.querySelectorAll('.sic').forEach(e=>e.textContent='↕');
+  const el=document.getElementById('si-'+col);if(el)el.textContent=SS.dir>0?'↑':'↓';
+  rCycle();
+}
+function sortR(rows,col,dir){
+  return[...rows].sort((a,b)=>{
+    let va=a[col],vb=b[col];if(va==null)return 1;if(vb==null)return -1;
+    if(va instanceof Date)return(va-vb)*dir;if(typeof va==='number')return(va-vb)*dir;
+    return String(va).localeCompare(String(vb))*dir;
+  });
+}
+function tab(n){
+  const ns=['cycle','daily','diffs','pend','carry','sum'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('act',ns[i]===n));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('act',p.id==='pan-'+n));
+  if(n==='carry')rCarry();if(n==='sum')rSum();
+}
+function yieldUI(ms){ return new Promise(r=>setTimeout(r,ms||0)); }
+// Read file as ArrayBuffer (for binary XLSX detection)
+function readBuf(f){
+  if(f.arrayBuffer) return f.arrayBuffer(); // Modern API — much faster
+  return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=()=>rej(new Error('read failed'));fr.readAsArrayBuffer(f);});
+}
+// Read file as text directly (for HTML-XLS — fastest path)
+function readText(f){
+  if(f.text) return f.text(); // Modern API
+  return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.onerror=()=>rej(new Error('read failed'));fr.readAsText(f,'utf-8');});
+}
+function r2(n){return Math.round((n||0)*100)/100;}
+function r4(n){return Math.round((n||0)*10000)/10000;}
+function f2(n){return(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function f4(n){return(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:4});}
+function toN(v){if(v==null)return 0;const s=String(v).replace(/,/g,'').trim();const n=parseFloat(s);return isNaN(n)?0:n;}
+function toI(v){const n=parseInt(v);return isNaN(n)?0:n;}
+function s(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function setSt(id,html){const e=document.getElementById(id);if(e)e.innerHTML=html;}
+function addD(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function pd8(s){return new Date(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8));}
+function fmtD(d){if(!d)return'';const dd=String(d.getDate()).padStart(2,'0');return`${dd}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}-${d.getFullYear()}`;}
+function cmpD(d){if(!d)return'';return`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
+function fmtMo(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function dC(v){if(v==null)return'';return v<0?'dn':v>0?'dp':'dz';}
+function rwC(st){return{MATCHED:'','PENDING':'rw-p','EXCESS DEBIT':'rw-e','DEFICIT':'rw-d'}[st]||'';}
+function bdg(st){const m={MATCHED:'m',PENDING:'p','EXCESS DEBIT':'e','DEFICIT':'d',PARTIAL:'p'};return`<span class="bd bd-${m[st]||'p'}">${st}</span>`;}
+function checkReady(){document.getElementById('btnRun').disabled=!(ntslOK&&bankOK);}
+function buildMoFilter(){
+  const mos=[...new Set(NTSL.map(b=>fmtMo(b.txnDate)))].sort();
+  const sel=document.getElementById('selMo');
+  sel.innerHTML='<option value="">All</option>'+mos.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(mos.length===1)sel.value=mos[0];
+}
+function buildDtFilter(){
+  const dates=[...new Set(RECON.map(r=>fmtD(r.txnDate)))];
+  document.getElementById('cyDt').innerHTML='<option value="">All Dates</option>'+dates.map(d=>`<option>${d}</option>`).join('');
+}
+function lg(t,m){
+  const d=document.getElementById('logDiv');d.style.display='block';
+  const l=document.createElement('div');l.className='ll-'+t;
+  l.textContent=`[${new Date().toLocaleTimeString()}] ${m}`;d.appendChild(l);d.scrollTop=d.scrollHeight;
+}
+/* ══════════════════════════════════════════════════════════════════
+   IMPORT EXCEL — load previously exported NFS_Recon_*.xlsx
+   Reads NFS_Recon_Cycle sheet → rebuilds RECON + DAILY + CARRY
+══════════════════════════════════════════════════════════════════ */
+async function importExcel(file){
+  if(!file)return;
+  lg('info','Importing: '+file.name);
+  try{
+    const buf=await readBuf(file);
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+
+    // ── Sheet: NFS_Recon_Cycle ──────────────────────────────────
+    const ws1=wb.Sheets['NFS_Recon_Cycle'];
+    if(!ws1){lg('err','Sheet NFS_Recon_Cycle not found — is this an NFS Recon export?');return;}
+    const rows1=XLSX.utils.sheet_to_json(ws1,{header:1,defval:null,raw:false,blankrows:false});
+    const hdr1=rows1[0]?rows1[0].map(v=>v?String(v).trim():''):[];
+    // col indices
+    const ci={
+      date:hdr1.findIndex(v=>v==='Date'),
+      cycle:hdr1.findIndex(v=>v==='Cycle'),
+      atmCnt:hdr1.findIndex(v=>v==='ATM Txn Count'),
+      atmAmt:hdr1.findIndex(v=>v==='ATM Txn Amt'),
+      atmFee:hdr1.findIndex(v=>v==='ATM Fee(ex-GST)'),
+      atmGST:hdr1.findIndex(v=>v==='ATM GST'),
+      atmTot:hdr1.findIndex(v=>v==='ATM Total Fee'),
+      biCnt:hdr1.findIndex(v=>v==='BI Count'),
+      biTot:hdr1.findIndex(v=>v==='BI Total Fee'),
+      miCnt:hdr1.findIndex(v=>v==='Micro Count'),
+      miAmt:hdr1.findIndex(v=>v==='Micro Amt'),
+      miFee:hdr1.findIndex(v=>v==='Micro Fee(ex-GST)'),
+      miGST:hdr1.findIndex(v=>v==='Micro GST'),
+      miTot:hdr1.findIndex(v=>v==='Micro Total Fee'),
+      swCnt:hdr1.findIndex(v=>v==='Switch Count'),
+      swFee:hdr1.findIndex(v=>v==='Switch Fee(ex-GST)'),
+      swGST:hdr1.findIndex(v=>v==='Switch GST'),
+      swTot:hdr1.findIndex(v=>v==='Switch Total Fee'),
+      disp:hdr1.findIndex(v=>v==='Dispute Amt'),
+      ntsl:hdr1.findIndex(v=>v==='Settlement Total'),
+      bank:hdr1.findIndex(v=>v==='Settlement from Bank'),
+      settDt:hdr1.findIndex(v=>v==='Settlement Date'),
+      diff:hdr1.findIndex(v=>v==='Difference'),
+    };
+    if(ci.date<0||ci.cycle<0||ci.ntsl<0){lg('err','Required columns missing in NFS_Recon_Cycle');return;}
+
+    RECON=[]; NTSL=[]; BANK=[];
+    let lastDate=null;
+    for(let i=1;i<rows1.length;i++){
+      const row=rows1[i];
+      if(!row)continue;
+      // Skip grand total row
+      const c0=row[0]?String(row[0]).trim():'';
+      if(c0==='GRAND TOTAL')continue;
+      // Date cell blank → use lastDate (merged cell export pattern)
+      let txnDate=null;
+      if(c0){
+        const dp=parseImportDate(c0);
+        if(dp){txnDate=dp;lastDate=dp;}
+        else continue;
+      } else {
+        if(!lastDate)continue;
+        txnDate=lastDate;
+      }
+      const cycle=row[ci.cycle]?String(row[ci.cycle]).trim():'';
+      if(!cycle)continue;
+      const ntslFinal=toN(row[ci.ntsl]);
+      const bankRaw=ci.bank>=0?row[ci.bank]:null;
+      const bankAmt=(bankRaw!==null&&bankRaw!==''&&bankRaw!==undefined)?toN(bankRaw):null;
+      const diffRaw=ci.diff>=0?row[ci.diff]:null;
+      const diff=(diffRaw!==null&&diffRaw!==''&&diffRaw!==undefined)?toN(diffRaw):null;
+      const thresh=parseFloat(document.getElementById('thresh').value)||1;
+      const status=bankAmt==null?'PENDING':Math.abs(diff||0)<=thresh?'MATCHED':(diff||0)<0?'EXCESS DEBIT':'DEFICIT';
+      let settDate=null;
+      if(ci.settDt>=0&&row[ci.settDt]){
+        if(row[ci.settDt] instanceof Date)settDate=row[ci.settDt];
+        else settDate=parseImportDate(String(row[ci.settDt]).trim());
+      }
+      if(!settDate)settDate=addD(txnDate,1);
+      RECON.push({
+        txnDate,cycle,settDate,ntslFinal,bankAmt,diff,status,
+        atmCount:ci.atmCnt>=0?toI(row[ci.atmCnt]):0,
+        atmAmt:ci.atmAmt>=0?toN(row[ci.atmAmt]):0,
+        atmFee:ci.atmFee>=0?toN(row[ci.atmFee]):0,
+        atmFeeGST:ci.atmGST>=0?toN(row[ci.atmGST]):0,
+        atmTotFee:ci.atmTot>=0?toN(row[ci.atmTot]):0,
+        biCount:ci.biCnt>=0?toI(row[ci.biCnt]):0,
+        biTot:ci.biTot>=0?toN(row[ci.biTot]):0,
+        microCount:ci.miCnt>=0?toI(row[ci.miCnt]):0,
+        microAmt:ci.miAmt>=0?toN(row[ci.miAmt]):0,
+        mFee:ci.miFee>=0?toN(row[ci.miFee]):0,
+        mGST:ci.miGST>=0?toN(row[ci.miGST]):0,
+        mTot:ci.miTot>=0?toN(row[ci.miTot]):0,
+        swCnt:ci.swCnt>=0?toI(row[ci.swCnt]):0,
+        swFee:ci.swFee>=0?toN(row[ci.swFee]):0,
+        swGST:ci.swGST>=0?toN(row[ci.swGST]):0,
+        swTot:ci.swTot>=0?toN(row[ci.swTot]):0,
+        disp:ci.disp>=0?toN(row[ci.disp]):0,
+        narrative:null
+      });
+    }
+
+    // ── Sheet: Carry_Over (optional) ───────────────────────────
+    CARRY=[];
+    const ws4=wb.Sheets['Carry_Over'];
+    if(ws4){
+      const rows4=XLSX.utils.sheet_to_json(ws4,{header:1,defval:null,raw:false,blankrows:false});
+      for(let i=1;i<rows4.length;i++){
+        const row=rows4[i];if(!row)continue;
+        const c0=row[0]?String(row[0]).trim():'';
+        if(c0==='TOTAL'||!c0)continue;
+        const txnDate=parseImportDate(c0);
+        if(!txnDate)continue;
+        const cycle=row[2]?String(row[2]).trim():'';
+        const bankDebit=toN(row[3]);
+        const narrative=row[4]?String(row[4]).trim():'';
+        let settDate=null;
+        if(row[1]){if(row[1] instanceof Date)settDate=row[1];else settDate=parseImportDate(String(row[1]).trim());}
+        CARRY.push({txnDate,settDate,cycle,bankDebit,narrative});
+      }
+    }
+
+    if(!RECON.length){lg('err','No data rows parsed from NFS_Recon_Cycle');return;}
+
+    // Rebuild DAILY from RECON
+    const thresh=parseFloat(document.getElementById('thresh').value)||1;
+    const dm={};
+    for(const r of RECON){
+      const k=fmtD(r.txnDate);
+      if(!dm[k])dm[k]={txnDate:r.txnDate,settDate:r.settDate,
+        atmCount:0,atmAmt:0,atmTotFee:0,microAmt:0,swCnt:0,settTot:0,bankTot:0,
+        hasBank:false,hP:false,hE:false,hD:false};
+      const d=dm[k];
+      d.atmCount+=r.atmCount;d.atmAmt+=r.atmAmt;d.atmTotFee+=r.atmTotFee;
+      d.microAmt+=r.microAmt;d.swCnt+=r.swCnt;
+      d.settTot=r4(d.settTot+r.ntslFinal);
+      if(r.bankAmt!=null){d.bankTot=r4(d.bankTot+r.bankAmt);d.hasBank=true;}
+      if(r.status==='PENDING')d.hP=true;
+      if(r.status==='EXCESS DEBIT')d.hE=true;
+      if(r.status==='DEFICIT')d.hD=true;
+    }
+    DAILY=Object.values(dm).sort((a,b)=>a.txnDate-b.txnDate).map(d=>{
+      const diff=d.hasBank?r4(d.settTot-d.bankTot):null;
+      const dbt=r2(RECON.filter(r=>fmtD(r.txnDate)===fmtD(d.txnDate)&&r.bankAmt!=null).reduce((s,r)=>s+r.bankAmt,0));
+      const status=!d.hasBank?'PENDING':d.hE?'EXCESS DEBIT':d.hD?'DEFICIT':d.hP?'PARTIAL':'MATCHED';
+      return{...d,diff,dbt,status};
+    });
+
+    // Mark ntslOK/bankOK so export works
+    ntslOK=true;bankOK=true;
+    document.getElementById('cardN').classList.add('ok');
+    document.getElementById('cardB').classList.add('ok');
+    setSt('stN','<span style="color:var(--green)">✓ Loaded from Excel: '+RECON.length+' cycles</span>');
+    setSt('stB','<span style="color:var(--green)">✓ Loaded from Excel</span>');
+
+    updateKPIs(thresh);buildDtFilter();renderAll();
+    document.getElementById('kpiRow').style.display='grid';
+    document.getElementById('resArea').style.display='block';
+    document.getElementById('btnExp').disabled=false;
+    document.getElementById('btnRun').disabled=false;
+    const ds=RECON.map(r=>r.txnDate);
+    const mn=new Date(Math.min(...ds)),mx=new Date(Math.max(...ds));
+    document.getElementById('tagPd').textContent=mn.getMonth()===mx.getMonth()
+      ?`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mn.getMonth()]} ${mn.getFullYear()}`
+      :`${fmtD(mn)} – ${fmtD(mx)}`;
+    lg('ok','Imported '+RECON.length+' cycles, '+CARRY.length+' carry-over rows from '+file.name);
+    // reset file input so same file can be re-loaded
+    document.getElementById('fImpXL').value='';
+  }catch(ex){lg('err','Import failed: '+ex.message);}
+}
+
+// Parse DD-Mon-YYYY (export format) or DD/MM/YYYY or YYYY-MM-DD
+function parseImportDate(s){
+  if(!s)return null;
+  // DD-Mon-YYYY e.g. 01-Apr-2025
+  let m=s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if(m){const mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};const mn=mo[m[2].toLowerCase()];if(mn!==undefined)return new Date(+m[3],mn,+m[1]);}
+  // DD/MM/YYYY
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  // YYYY-MM-DD
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  // DD-MM-YYYY
+  m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  return null;
+}
+
+
+function resetAll(){
+  NTSL=[];BANK=[];RECON=[];DAILY=[];CARRY=[];ntslOK=false;bankOK=false;
+  ['cardN','cardB'].forEach(id=>document.getElementById(id).classList.remove('ok','err'));
+  ['stN','stB'].forEach(id=>setSt(id,''));
+  document.getElementById('btnRun').disabled=true;
+  document.getElementById('btnExp').disabled=true;
+  document.getElementById('kpiRow').style.display='none';
+  document.getElementById('resArea').style.display='none';
+  document.getElementById('logDiv').style.display='none';
+  document.getElementById('logDiv').innerHTML='';
+  ['fFolder','fMulti','fDzN','fBank','fImpXL'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  s('runTs','');s('tagPd','—');
+}
+</script>
+</body>
+</html>
