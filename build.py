@@ -33,7 +33,7 @@ def themed(mid: str, html: str) -> str:
 def embed(html: str) -> str:
     """JSON-encode and neutralise sequences that would end/alter the host <script> block."""
     s = json.dumps(html, ensure_ascii=False)
-    return s.replace("</", "<\\/").replace("<!--", "<\\u0021--")
+    return s.replace("</", "<\\/").replace("<!--", "<\\u0021--").replace("\ufffd", "\\ufffd")
 
 
 def main() -> None:
