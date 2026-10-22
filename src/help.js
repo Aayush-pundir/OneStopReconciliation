@@ -177,5 +177,56 @@ upi: {
     ['Tips', `<ul><li>Load a full month so that all 12 cycles of every date are present; missing cycles are reported in Pass 1.</li>
       <li>“Prior Month” rows are normal at the start of a month (T+1 carry-over from last month).</li></ul>`],
   ]
+},
+/* ───────────────────────────── ADD MONEY TO POOL ───────────────────────────── */
+addmoney: {
+  rules: [
+    ['Purpose', `<p>Checks that every <b>Add Money</b> / <b>Ops Adjustment</b> credit given to a customer in the Ops file has a matching <b>credit in the bank statement</b> (customer pool account). Both sides are matched on the <b>UTR</b> number. This is the logic of the <i>Reconciliation Automation Macro v3</i>, unchanged.</p>`],
+    ['Inputs', `<ul>
+      <li><b>Ops file</b> – sheet named <code>Ops File</code> (or the first sheet). Required headers: <code>TransactionCategory</code>, <code>TransactionType</code>, <code>UtrNo</code>, <code>TotalTransactionAmount</code>. <code>EnterpriseName</code> is used for the name column. Header names must match exactly (extra spaces at the ends are ignored).</li>
+      <li><b>Bank statement</b> – sheet named <code>Bank Statement</code> (or the first sheet). Required headers: <code>Narrative</code>, <code>Credit</code>.</li>
+      <li>If a file is missing a required header, that step is skipped and a warning is shown, exactly as the macro does.</li></ul>`],
+    ['Step 1 – Ops file (Final UTR Ops, Ops Amount)', `<ul>
+      <li>A row counts only if <b>TransactionCategory</b> is <code>ADD MONEY</code>, <code>OPS ADJUSTMENT</code> or <code>OPS ADJUSTEMENT</code> (any capitalisation) <b>and</b> <b>TransactionType</b> is <code>CREDIT</code>. Every other row gets a blank UTR and amount.</li>
+      <li>UTRs that start with <code>TRXV</code> are <b>ignored</b> (blank).</li>
+      <li>UTRs that start with <code>RE1</code> → <b>Final UTR</b> = the text after <code>RE1</code>.</li>
+      <li>Any other UTR → <b>Final UTR</b> = only its digits (all other characters removed).</li>
+      <li><b>Ops Amount</b> = TotalTransactionAmount (blank if it is not a number).</li></ul>`],
+    ['Step 2 – Bank statement (Final UTR Bank, Bank Amount)', `<p>The narrative decides how the UTR is read (checked in this order):</p>
+      <table class="rt"><tr><th>Narrative starts with</th><th>Final UTR</th></tr>
+      <tr><td><code>IMPS/</code></td><td>first <b>12 digits</b> found in the narrative</td></tr>
+      <tr><td><code>IFT/</code></td><td>first <b>11 digits</b> found in the narrative</td></tr>
+      <tr><td><code>INEFT</code> or <code>IRTGS</code></td><td>digits between <code>~EROUTE~</code> and the next <code>~</code></td></tr>
+      <tr><td><code>NEFT</code>, <code>RTGS</code> or <code>IMPS</code> (no slash)</td><td>digits between the first <code>/</code> and the next <code>/</code></td></tr>
+      <tr><td>anything else (not empty)</td><td>all digits in the narrative</td></tr></table>
+      <p><b>Bank Amount</b> = the Credit amount; blank when the credit is zero or empty.</p>`],
+    ['Step 3 – Matching rules', `<ul>
+      <li>Rows with the <b>same Final UTR are added together</b> on each side (Ops and Bank).</li>
+      <li>Every Ops UTR is listed first, in file order; then every Bank UTR that was not matched, in file order.</li></ul>
+      <table class="rt"><tr><th>Status</th><th>Rule</th></tr>
+      <tr><td>MATCHED</td><td>UTR is on both sides and |Ops − Bank| &lt; ₹0.01</td></tr>
+      <tr><td>AMOUNT MISMATCH</td><td>UTR is on both sides but the amounts differ (Difference = Ops − Bank)</td></tr>
+      <tr><td>NOT IN BANK</td><td>Ops UTR with no bank entry (Difference = Ops amount)</td></tr>
+      <tr><td>NOT IN OPS</td><td>Bank UTR with no Ops entry (Difference = −Bank amount). This includes bank debit rows whose narrative contains digits; they show a bank amount of 0.00</td></tr></table>`],
+    ['Summary block', `<p>Counts of the four statuses, <b>Total Ops Amount (Matched)</b>, <b>Total Bank Amount (Matched)</b> and <b>Net Unreconciled Difference</b> (sum of Difference for AMOUNT MISMATCH rows).</p>`],
+    ['Output', `<p>Download Excel with three sheets like the macro leaves behind: <b>Ops File</b> and <b>Bank Statement</b> (your data plus the Final UTR and Amount columns, with the first row of each reconciled UTR coloured) and <b>Reconciliation</b> (table + summary). File: <code>Add_Money_Recon_DDMMYY.xlsx</code>.</p>
+      <p style="color:#5a6b82">Not part of the macro (so not done here): manual remarks, moving rows, and the “Add Condition” notes in the workbook (removing bank debits, bank-transfer checks).</p>`],
+  ],
+  how: [
+    ['Steps', `<ol>
+      <li><b>Step 1</b> – select or drag in the <b>Add Money Ops file</b> (.xlsx / .xls / .xlsm / .csv). You will see the sheet used and the number of data rows, or the headers that are missing.</li>
+      <li><b>Step 2</b> – select or drag in the <b>Bank statement</b>.</li>
+      <li><b>Step 3</b> – click <b>⚡ Run Reconciliation</b>.</li>
+      <li>Read the result: the four status tiles, the matched totals and the table. Use <b>search</b> (UTR or enterprise name) and the <b>status</b> filter to find items.</li>
+      <li>Click <b>⬇ Download Recon Excel</b> to save the full workbook.</li></ol>`],
+    ['What to look at first', `<ul>
+      <li><b>AMOUNT MISMATCH</b> – same UTR, different amounts; the Difference column shows by how much.</li>
+      <li><b>NOT IN BANK</b> – credited in Ops but no matching credit in the bank statement.</li>
+      <li><b>NOT IN OPS</b> – in the bank statement but not credited through Add Money / Ops Adjustment (internal transfers, other agent loads, etc.).</li></ul>`],
+    ['Tips', `<ul>
+      <li>Use the raw Ops and bank files; the Final UTR / Amount columns are added for you. If the file already has them, they are recalculated.</li>
+      <li>The table on screen shows the first 5,000 rows; the downloaded Excel has all of them.</li>
+      <li>Large Ops files (30,000+ rows) are fine; reading and the Excel download can take a few seconds.</li></ul>`],
+  ]
 }
 };

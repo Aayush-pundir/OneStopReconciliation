@@ -1,6 +1,6 @@
 # One Stop Reconciliation
 
-A single dashboard with one tab per reconciliation: **FASTag**, **NFS**, **RuPay**, **UPI**.
+A single dashboard with one tab per reconciliation: **FASTag**, **NFS**, **RuPay**, **UPI**, **Add money to Pool**.
 
 **Use it:** open `index.html` in Chrome/Edge. That one file is the whole platform.
 
@@ -14,7 +14,7 @@ and behave identically to standalone. A tab's uploaded files and results are kep
 - `index.html` – built single-file dashboard (generated, commit it)
 - `src/shell.html` – dashboard shell (sidebar, per-tab toolbar, help dialog)
 - `src/help.js` – text behind each tab's **Rules & parameters** and **How to use** icons (edit here if a tool's rules change)
-- `src/modules/*.html` – the individual reconciliation tools (original files, never edited by the build)
+- `src/modules/*.html` – the individual reconciliation tools (original files, never edited by the build). `addmoney.html` is a port of the Recon-181026.xlsm macro (Module1 v3)
 - `src/themes/*.css` – per-tool theme (colours/layout only) injected by the build
 - `build.py` – `python3 build.py` regenerates `index.html`
 

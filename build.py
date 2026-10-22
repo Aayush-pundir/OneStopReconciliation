@@ -17,6 +17,7 @@ MODULES = [
     ("nfs",    "NFS",    "NTSL × Bank",         "nfs.html"),
     ("rupay",  "RuPay",  "DSR × Bank",          "rupay.html"),
     ("upi",    "UPI",    "NTSL × Bank",         "upi.html"),
+    ("addmoney", "Add money to Pool", "Ops × Bank (UTR)", "addmoney.html"),
 ]
 
 

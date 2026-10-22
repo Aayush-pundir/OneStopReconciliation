@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Add Money to Pool Reconciliation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+:root{--bg:#eef2f7;--surf:#fff;--bdr:#d5deea;--acc:#1b4b82;--acc2:#153c6a;--navy:#0f2540;--txt:#1a2433;--mut:#5a6b82;
+  --grn:#1e7e34;--red:#c62828;--ylw:#b26a00;--r:10px;--font:'Segoe UI',system-ui,sans-serif;--mono:Consolas,'Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--txt);font-size:13px;padding-bottom:28px}
+.band{background:var(--navy);padding:14px 24px;display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.band h1{color:#fff;font-size:16px;font-weight:700;letter-spacing:.3px}
+.band .sub{color:#9db6d3;font-size:11px;margin-top:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:0 1px 3px rgba(15,37,64,.08);padding:20px 22px;margin-bottom:16px}
+.ctitle{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:12px}
+.drop{border:2px dashed var(--bdr);border-radius:var(--r);padding:24px 20px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:#4da3ff;background:#e3eefb}
+.drop.ok{border-color:var(--grn);background:#f1faf3;border-style:solid}
+.drop.bad{border-color:var(--red);background:#fdf3f2;border-style:solid}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;font-size:0}
+.drop-icon{font-size:26px;margin-bottom:6px}
+.drop-lbl{font-size:14px;font-weight:600}
+.drop-sub{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.5}
+.fstat{margin-top:10px;font-size:12px;line-height:1.6;min-height:18px}
+.fstat.ok{color:var(--grn)}.fstat.er{color:var(--red)}.fstat.wt{color:var(--ylw)}
+code{background:#eef2f7;border:1px solid #dbe3ee;border-radius:4px;padding:0 5px;font-size:11px;font-family:var(--mono)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:background .15s}
+.btn-p{background:var(--acc);color:#fff}.btn-p:hover:not(:disabled){background:var(--acc2)}.btn-p:disabled{background:#9db6d3;cursor:not-allowed}
+.btn-g{background:var(--grn);color:#fff}.btn-g:hover:not(:disabled){background:#17652a}.btn-g:disabled{opacity:.5;cursor:not-allowed}
+.runsec{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--mut)}
+.pbar{height:5px;background:var(--bdr);border-radius:99px;overflow:hidden;margin-top:12px;display:none}
+.pbar.vis{display:block}.pfill{height:100%;background:var(--acc);width:0%;transition:width .2s}
+.logbox{background:var(--navy);color:#9ccbff;border-radius:var(--r);padding:14px;font-family:var(--mono);font-size:12px;line-height:1.7;max-height:200px;overflow-y:auto;display:none;margin-top:12px}
+.logbox.vis{display:block}
+.lo{color:#7ddc92}.lw{color:#ffd580}.le{color:#ff8a8a}
+.alert{border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;white-space:pre-line}
+.alert.vis{display:block}
+.a-ok{background:#e6f4ea;color:#1e7e34;border:1px solid #b7dfc1}
+.a-wn{background:#fff4e0;color:#8a5200;border:1px solid #f0d49b}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;background:#f4f8fd}
+.tile .n{font-size:22px;font-weight:700;line-height:1.2}
+.tile .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;font-weight:700}
+.t-m{background:#C6EFCE;color:#006300}.t-x{background:#FFFF99;color:#006999}.t-b{background:#CCFFCC;color:#9C0006}.t-o{background:#FFE6DD;color:#000082}
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:16px}
+.tot{border:1px solid var(--bdr);border-radius:8px;padding:10px 14px}
+.tot .l{font-size:11px;color:var(--mut);font-weight:600}.tot .v{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:3px}
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fbar input,.fbar select{border:1px solid var(--bdr);border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;background:#fff;color:var(--txt)}
+.fbar input{width:230px}
+.fbar .cnt{margin-left:auto;font-size:11px;color:var(--mut)}
+.tw{overflow:auto;max-height:520px;border:1px solid var(--bdr);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{position:sticky;top:0;background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap}
+thead th.num{text-align:right}
+tbody td{padding:6px 10px;border-bottom:1px solid #e6edf5;white-space:nowrap}
+tbody td.num{text-align:right;font-family:var(--mono)}
+tbody td.utr{font-family:var(--mono)}
+tbody td.nm{white-space:normal;min-width:180px;word-break:break-word}
+tbody tr:hover{background:#f2f7fd}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:10.5px;font-weight:700}
+.p-m{background:#C6EFCE;color:#006300}.p-x{background:#FFFF99;color:#006999}.p-b{background:#CCFFCC;color:#9C0006}.p-o{background:#FFE6DD;color:#000082}
+.note{font-size:11px;color:var(--mut);margin-top:8px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="logo">₹</div>
+  <div>
+    <h1>Add Money to Pool Reconciliation</h1>
+    <div class="sub">Add Money / Ops Adjustment credits (Ops file) × Bank statement credits — matched on UTR</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="ctitle">Step 1 — Add Money Ops file</div>
+    <div class="drop" id="opsDrop">
+      <input type="file" id="opsIn" accept=".xlsx,.xls,.xlsm,.csv">
+      <div class="drop-icon">📂</div>
+      <div class="drop-lbl">Click to select the Ops file or drag &amp; drop</div>
+      <div class="drop-sub">Sheet <code>Ops File</code> (or the first sheet). Headers needed:
+        <code>TransactionCategory</code> <code>TransactionType</code> <code>UtrNo</code> <code>TotalTransactionAmount</code>
+        and <code>EnterpriseName</code> for names</div>
+    </div>
+    <div class="fstat" id="opsStat"></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Step 2 — Bank statement</div>
+    <div class="drop" id="bankDrop">
+      <input type="file" id="bankIn" accept=".xlsx,.xls,.xlsm,.csv">
+      <div class="drop-icon">🏦</div>
+      <div class="drop-lbl">Click to select the Bank Statement or drag &amp; drop</div>
+      <div class="drop-sub">Sheet <code>Bank Statement</code> (or the first sheet). Headers needed: <code>Narrative</code> <code>Credit</code></div>
+    </div>
+    <div class="fstat" id="bankStat"></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Step 3 — Run reconciliation</div>
+    <div class="runsec">
+      <button class="btn btn-p" id="runBtn" disabled>⚡ Run Reconciliation</button>
+      <span class="hint" id="runHint">Select the Ops file and the bank statement to enable</span>
+    </div>
+    <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="logbox" id="logbox"></div>
+  </div>
+
+  <div class="card hidden" id="resCard">
+    <div class="ctitle">Reconciliation result</div>
+    <div class="alert" id="alertBox"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="totals" id="totals"></div>
+    <div class="fbar">
+      <input type="text" id="q" placeholder="Search UTR or enterprise name…">
+      <select id="st">
+        <option value="">All statuses</option>
+        <option>MATCHED</option><option>AMOUNT MISMATCH</option><option>NOT IN BANK</option><option>NOT IN OPS</option>
+      </select>
+      <button class="btn btn-g" id="dlBtn" style="margin-left:8px;padding:7px 16px;font-size:12px">⬇ Download Recon Excel</button>
+      <span class="cnt" id="cnt"></span>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Final UTR</th><th>Enterprise Name</th><th class="num">Ops Amount</th><th class="num">Bank Amount</th><th class="num">Difference</th><th>Status</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+    <div class="note" id="tnote"></div>
+  </div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   ADD MONEY TO POOL — port of the "Reconciliation Automation Macro v3"
+   (Module1.RunReconciliation). Same three steps, same rules:
+     1. Ops File      → "Final UTR Ops" + "Ops Amount"
+     2. Bank Statement → "Final UTR Bank" + "Bank Amount"
+     3. Reconciliation → UTR match, status, summary, source-row highlighting
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* macro colour constants (VBA Long = BGR); the values are used exactly as the macro uses them */
+const CLR = {MATCHED:13561798, MATCHED_FNT:25344, MISMATCH:10092543, MISMATCH_FNT:10053888,
+             NOTBANK:13434828, NOTBANK_FNT:393216, NOTOPS:14542591, NOTOPS_FNT:8519680, HEADER:2040113};
+const hex = v => ('0'+(v&255).toString(16)).slice(-2)+('0'+((v>>8)&255).toString(16)).slice(-2)+('0'+((v>>16)&255).toString(16)).slice(-2);
+const argb = v => 'FF'+hex(v).toUpperCase();
+const NOTBANK_FONT_RGB = 'FF9C0006';          // macro: RGB(156, 0, 6)
+
+/* ── VBA helpers ─────────────────────────────────────────────────────── */
+const isBlank = v => v === null || v === undefined || v === '';
+const vtrim = s => String(s).replace(/^ +| +$/g, '');                       // VBA Trim: spaces only
+function cstr(v){
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'boolean') return v ? 'True' : 'False';
+  return String(v);
+}
+function isNumeric(v){                                                       // VBA IsNumeric (Empty counts as numeric)
+  if (v === null || v === undefined) return true;
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (typeof v === 'boolean') return true;
+  const s = String(v);
+  return /\d/.test(s) && /^\s*[+-]?(\d{1,3}(,\d{3})+|\d*)(\.\d*)?([eE][+-]?\d+)?\s*$/.test(s);
+}
+function cdbl(v){
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'boolean') return v ? -1 : 0;
+  return parseFloat(String(v).replace(/,/g, '').trim());
+}
+const ascUpper = s => s.replace(/[a-z]/g, c => c.toUpperCase());
+function extractNumbers(s){ let r=''; for (const c of s) if (c>='0' && c<='9') r+=c; return r; }
+function firstNDigits(s, n){ let r=''; for (const c of s){ if (c>='0' && c<='9'){ r+=c; if (r.length===n) break; } } return r; }
+function extractBetweenTilde(s){                                             // digits between ~EROUTE~ and next ~
+  const u = ascUpper(s); let p = u.indexOf('~EROUTE~');
+  if (p < 0) return '';
+  p += 8; const e = u.indexOf('~', p);
+  return extractNumbers(vtrim(e < 0 ? s.slice(p) : s.slice(p, e)));
+}
+function extractBetweenSlashes(s){                                           // digits between first / and next /
+  const p1 = s.indexOf('/');
+  if (p1 < 0) return '';
+  const p2 = s.indexOf('/', p1 + 1);
+  return extractNumbers(vtrim(p2 < 0 ? s.slice(p1 + 1) : s.slice(p1 + 1, p2)));
+}
+
+/* ── sheet grid helpers (row 0 = headers) ────────────────────────────── */
+const cell = (rows, i, c) => { const r = rows[i]; return r && r[c] !== undefined ? r[c] : null; };
+function setCell(rows, i, c, v){ const r = rows[i]; while (r.length <= c) r.push(null); r[c] = v; }
+function lastCol(rows){                                                      // 1-based last non-empty header cell
+  const h = rows[0] || []; let n = 0;
+  for (let j = 0; j < h.length; j++) if (!isBlank(h[j])) n = j + 1;
+  return n;
+}
+function lastRowIdx(rows){                                                   // last row with something in column A
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i] && !isBlank(rows[i][0])) return i;
+  return 0;
+}
+
+/* ── STEP 1 — Ops file ───────────────────────────────────────────────── */
+function processOps(rows, err){
+  let lc = lastCol(rows); const last = lastRowIdx(rows);
+  let cCat=-1, cType=-1, cUtr=-1, cAmt=-1, cFUtr=-1, cOAmt=-1;
+  for (let j = 0; j < lc; j++) {
+    switch (vtrim(cstr(rows[0][j]))) {
+      case 'TransactionCategory': cCat = j; break;
+      case 'TransactionType': cType = j; break;
+      case 'UtrNo': cUtr = j; break;
+      case 'TotalTransactionAmount': cAmt = j; break;
+      case 'Final UTR Ops': cFUtr = j; break;
+      case 'Ops Amount': cOAmt = j; break;
+    }
+  }
+  if (cCat<0 || cType<0 || cUtr<0 || cAmt<0) { err.push('- Ops File: missing required header(s). Skipped.'); return {newCols:[]}; }
+  const newCols = [];
+  if (cFUtr < 0) { cFUtr = lc; lc++; setCell(rows, 0, cFUtr, 'Final UTR Ops'); newCols.push(cFUtr); }
+  if (cOAmt < 0) { cOAmt = lc; lc++; setCell(rows, 0, cOAmt, 'Ops Amount'); newCols.push(cOAmt); }
+  for (let i = 1; i <= last; i++) {
+    const cat = vtrim(cstr(cell(rows,i,cCat))), typ = vtrim(cstr(cell(rows,i,cType)));
+    const utr = vtrim(cstr(cell(rows,i,cUtr))), amt = cell(rows,i,cAmt);
+    const catMatch = ['ADD MONEY','OPS ADJUSTMENT','OPS ADJUSTEMENT'].includes(cat.toUpperCase());
+    if (catMatch && typ.toUpperCase() === 'CREDIT') {
+      if (ascUpper(utr).slice(0,4) === 'TRXV') {                            // ignore TRXV records
+        setCell(rows,i,cFUtr,''); setCell(rows,i,cOAmt,null);
+      } else {
+        const fin = ascUpper(utr).slice(0,3) === 'RE1' ? utr.slice(3) : extractNumbers(utr);
+        setCell(rows,i,cFUtr,fin);
+        setCell(rows,i,cOAmt, isNumeric(amt) ? cdbl(amt) : null);
+      }
+    } else { setCell(rows,i,cFUtr,''); setCell(rows,i,cOAmt,null); }
+  }
+  return {newCols};
+}
+
+/* ── STEP 2 — Bank statement ─────────────────────────────────────────── */
+function processBank(rows, err){
+  let lc = lastCol(rows); const last = lastRowIdx(rows);
+  let cNarr=-1, cCred=-1, cFUtr=-1, cBAmt=-1;
+  for (let j = 0; j < lc; j++) {
+    switch (vtrim(cstr(rows[0][j]))) {
+      case 'Narrative': cNarr = j; break;
+      case 'Credit': cCred = j; break;
+      case 'Final UTR Bank': cFUtr = j; break;
+      case 'Bank Amount': cBAmt = j; break;
+    }
+  }
+  if (cNarr<0 || cCred<0) { err.push('- Bank Statement: missing required header(s). Skipped.'); return {newCols:[]}; }
+  const newCols = [];
+  if (cFUtr < 0) { cFUtr = lc; lc++; setCell(rows, 0, cFUtr, 'Final UTR Bank'); newCols.push(cFUtr); }
+  if (cBAmt < 0) { cBAmt = lc; lc++; setCell(rows, 0, cBAmt, 'Bank Amount'); newCols.push(cBAmt); }
+  for (let i = 1; i <= last; i++) {
+    const narr = vtrim(cstr(cell(rows,i,cNarr))), cred = cell(rows,i,cCred), n = ascUpper(narr);
+    let u = '';
+    if (n.slice(0,5) === 'IMPS/') u = firstNDigits(narr, 12);                 // IMPS/  → first 12 digits
+    else if (n.slice(0,4) === 'IFT/') u = firstNDigits(narr, 11);             // IFT/   → first 11 digits
+    else if (n.slice(0,5) === 'INEFT' || n.slice(0,5) === 'IRTGS') u = extractBetweenTilde(narr);
+    else if (['NEFT','RTGS','IMPS'].includes(n.slice(0,4))) u = extractBetweenSlashes(narr);
+    else if (narr !== '') u = extractNumbers(narr);                            // fallback: all digits
+    setCell(rows,i,cFUtr,u);
+    setCell(rows,i,cBAmt, (isNumeric(cred) && cdbl(cred) !== 0) ? cdbl(cred) : null);
+  }
+  return {newCols};
+}
+
+/* ── STEP 3 — Reconciliation ─────────────────────────────────────────── */
+function buildRecon(ops, bank, err){
+  let oU=-1,oA=-1,oE=-1,bU=-1,bA=-1;
+  const olc = lastCol(ops), blc = lastCol(bank);
+  for (let j=0;j<olc;j++) switch (vtrim(cstr(ops[0][j]))) { case 'Final UTR Ops': oU=j; break; case 'Ops Amount': oA=j; break; case 'EnterpriseName': oE=j; break; }
+  for (let j=0;j<blc;j++) switch (vtrim(cstr(bank[0][j]))) { case 'Final UTR Bank': bU=j; break; case 'Bank Amount': bA=j; break; }
+  if (oU<0 || oA<0 || bU<0 || bA<0) { err.push('- Reconciliation: Final UTR / Amount columns not found.'); return null; }
+
+  const bankAmt = new Map(), bankRow = new Map();
+  for (let i = 1; i <= lastRowIdx(bank); i++) {
+    const u = vtrim(cstr(cell(bank,i,bU))), a = cell(bank,i,bA);
+    if (u !== '' && isNumeric(a)) {
+      if (bankAmt.has(u)) bankAmt.set(u, bankAmt.get(u) + cdbl(a));
+      else { bankAmt.set(u, cdbl(a)); bankRow.set(u, i); }
+    }
+  }
+  const opsAmt = new Map(), opsRow = new Map(), ent = new Map();
+  for (let i = 1; i <= lastRowIdx(ops); i++) {
+    const u = vtrim(cstr(cell(ops,i,oU))), a = cell(ops,i,oA);
+    const en = oE >= 0 ? vtrim(cstr(cell(ops,i,oE))) : '';
+    if (u !== '' && isNumeric(a)) {
+      if (opsAmt.has(u)) opsAmt.set(u, opsAmt.get(u) + cdbl(a));
+      else { opsAmt.set(u, cdbl(a)); opsRow.set(u, i); }
+      if (!ent.has(u)) ent.set(u, en);
+    }
+  }
+  const out = [], hiOps = [], hiBank = [], matched = new Set();
+  for (const [k, oa] of opsAmt) {
+    let ba = null, diff, status;
+    if (bankAmt.has(k)) { ba = bankAmt.get(k); diff = oa - ba; status = Math.abs(diff) < 0.01 ? 'MATCHED' : 'AMOUNT MISMATCH'; matched.add(k); }
+    else { diff = oa; status = 'NOT IN BANK'; }
+    out.push({utr:k, ent:ent.get(k) || '', ops:oa, bank:ba, diff, status});
+    if (opsRow.has(k)) hiOps.push({row:opsRow.get(k), status});
+    if (status !== 'NOT IN BANK' && bankRow.has(k)) hiBank.push({row:bankRow.get(k), status});
+  }
+  for (const [k, ba] of bankAmt) {
+    if (!matched.has(k)) {
+      out.push({utr:k, ent:'', ops:null, bank:ba, diff:-ba, status:'NOT IN OPS'});
+      if (bankRow.has(k)) hiBank.push({row:bankRow.get(k), status:'NOT IN OPS'});
+    }
+  }
+  const cnt = s => out.filter(r => r.status === s).length;
+  const sum = (s, f) => out.filter(r => r.status === s).reduce((a, r) => a + (r[f] || 0), 0);
+  const summary = {
+    matched: cnt('MATCHED'), mismatch: cnt('AMOUNT MISMATCH'), notBank: cnt('NOT IN BANK'), notOps: cnt('NOT IN OPS'),
+    opsMatched: sum('MATCHED','ops'), bankMatched: sum('MATCHED','bank'), netDiff: sum('AMOUNT MISMATCH','diff')
+  };
+  return {out, hiOps, hiBank, summary};
+}
+
+/* ════════════════════════ UI ════════════════════════════════════════ */
+const fmt = n => (n === null || n === undefined || n === '') ? '' : Number(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $ = id => document.getElementById(id);
+const PILL = {'MATCHED':'p-m','AMOUNT MISMATCH':'p-x','NOT IN BANK':'p-b','NOT IN OPS':'p-o'};
+const files = {ops:null, bank:null};      // {name, rows, sheet}
+let RESULT = null;                        // last run
+
+function log(msg, cls){ const b=$('logbox'); b.classList.add('vis'); const d=document.createElement('div'); if(cls) d.className=cls; d.textContent=msg; b.appendChild(d); b.scrollTop=b.scrollHeight; }
+function setP(p){ $('pbar').classList.add('vis'); $('pfill').style.width = p+'%'; }
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+function sheetToRows(ws){
+  if (!ws || !ws['!ref']) return [];
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  return XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true, blankrows:true, range:{s:{r:0,c:0}, e:rg.e}});
+}
+async function loadFile(kind, file){
+  const stat = $(kind+'Stat'), drop = $(kind+'Drop'), pref = kind==='ops' ? 'Ops File' : 'Bank Statement';
+  const need = kind==='ops' ? ['TransactionCategory','TransactionType','UtrNo','TotalTransactionAmount'] : ['Narrative','Credit'];
+  files[kind] = null; drop.classList.remove('ok','bad'); stat.className = 'fstat wt'; stat.textContent = '⏳ Reading ' + file.name + '…';
+  checkReady(); await tick();
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array', raw:true});
+    const sn = wb.SheetNames.find(n => n.trim() === pref) || wb.SheetNames[0];
+    const rows = sheetToRows(wb.Sheets[sn]);
+    const hdr = (rows[0] || []).map(v => vtrim(cstr(v)));
+    const miss = need.filter(h => !hdr.includes(h));
+    files[kind] = {name:file.name, rows, sheet:sn};
+    const n = Math.max(0, lastRowIdx(rows));
+    if (miss.length) {
+      drop.classList.add('bad'); stat.className = 'fstat er';
+      stat.textContent = '✗ ' + file.name + ' — sheet “' + sn + '”, ' + n.toLocaleString('en-IN') + ' rows. Missing header(s): ' + miss.join(', ') + ' (the macro skips a file like this).';
+    } else {
+      drop.classList.add('ok'); stat.className = 'fstat ok';
+      stat.textContent = '✓ ' + file.name + ' — sheet “' + sn + '”, ' + n.toLocaleString('en-IN') + ' data rows';
+    }
+  } catch (e) { drop.classList.add('bad'); stat.className = 'fstat er'; stat.textContent = '✗ Could not read ' + file.name + ': ' + e.message; }
+  checkReady();
+}
+function checkReady(){
+  const ok = files.ops && files.bank;
+  $('runBtn').disabled = !ok;
+  $('runHint').textContent = ok ? 'Ready — ' + files.ops.name + ' × ' + files.bank.name
+    : (!files.ops && !files.bank) ? 'Select the Ops file and the bank statement to enable' : (!files.ops ? 'Select the Ops file' : 'Select the bank statement');
+}
+function wireDrop(kind){
+  const z = $(kind+'Drop'), i = $(kind+'In');
+  i.addEventListener('change', () => { if (i.files[0]) loadFile(kind, i.files[0]); });
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('over'); if (e.dataTransfer.files[0]) loadFile(kind, e.dataTransfer.files[0]); });
+}
+wireDrop('ops'); wireDrop('bank');
+
+async function runRecon(){
+  $('runBtn').disabled = true; $('logbox').innerHTML = ''; $('resCard').classList.add('hidden'); RESULT = null; setP(0);
+  try {
+    const err = [];
+    const ops = files.ops.rows.map(r => (r || []).slice()), bank = files.bank.rows.map(r => (r || []).slice());
+    if (!ops.length) ops.push([]); if (!bank.length) bank.push([]);
+    log('Step 1 — Ops File…'); setP(10); await tick();
+    const o = processOps(ops, err); log('Step 1 done', 'lo');
+    log('Step 2 — Bank Statement…'); setP(40); await tick();
+    const b = processBank(bank, err); log('Step 2 done', 'lo');
+    log('Step 3 — Reconciliation…'); setP(70); await tick();
+    const res = buildRecon(ops, bank, err);
+    setP(100);
+    if (!res) { err.forEach(m => log(m, 'lw')); showAlert(err); return; }
+    RESULT = Object.assign(res, {ops, bank, oNew:o.newCols, bNew:b.newCols, err});
+    log('Done — ' + res.out.length.toLocaleString('en-IN') + ' UTRs reconciled', 'lo');
+    err.forEach(m => log(m, 'lw'));
+    render(); showAlert(err);
+  } catch (e) { log('Error: ' + (e.message || e), 'le'); console.error(e); }
+  finally { $('runBtn').disabled = false; }
+}
+function showAlert(err){
+  const a = $('alertBox'); $('resCard').classList.remove('hidden'); a.classList.add('vis');
+  if (err.length) { a.className = 'alert vis a-wn'; a.textContent = 'Reconciliation completed with the following warnings:\n\n' + err.join('\n'); }
+  else { a.className = 'alert vis a-ok'; a.textContent = 'Reconciliation complete! Review the table below or download the Excel.'; }
+  if (!RESULT || !RESULT.out) { $('tiles').innerHTML = ''; $('totals').innerHTML = ''; $('tbody').innerHTML = ''; }
+}
+function render(){
+  const s = RESULT.summary;
+  $('tiles').innerHTML =
+    [['t-m','Matched',s.matched],['t-x','Amount Mismatch',s.mismatch],['t-b','Not in Bank',s.notBank],['t-o','Not in Ops',s.notOps]]
+    .map(t => '<div class="tile '+t[0]+'"><div class="n">'+t[2].toLocaleString('en-IN')+'</div><div class="l">'+t[1]+'</div></div>').join('');
+  $('totals').innerHTML =
+    [['Total Ops Amount (Matched)',s.opsMatched],['Total Bank Amount (Matched)',s.bankMatched],['Net Unreconciled Difference',s.netDiff]]
+    .map(t => '<div class="tot"><div class="l">'+t[0]+'</div><div class="v">₹'+fmt(t[1])+'</div></div>').join('');
+  renderTable();
+}
+const MAXROWS = 5000;
+function renderTable(){
+  const q = $('q').value.trim().toLowerCase(), st = $('st').value;
+  const rows = RESULT.out.filter(r => (!st || r.status === st) && (!q || r.utr.toLowerCase().includes(q) || r.ent.toLowerCase().includes(q)));
+  $('tbody').innerHTML = rows.slice(0, MAXROWS).map(r =>
+    '<tr><td class="utr">'+esc(r.utr)+'</td><td class="nm">'+esc(r.ent)+'</td><td class="num">'+fmt(r.ops)+'</td><td class="num">'+fmt(r.bank)+
+    '</td><td class="num">'+fmt(r.diff)+'</td><td><span class="pill '+PILL[r.status]+'">'+r.status+'</span></td></tr>').join('');
+  $('cnt').textContent = rows.length.toLocaleString('en-IN') + ' of ' + RESULT.out.length.toLocaleString('en-IN') + ' rows';
+  $('tnote').textContent = rows.length > MAXROWS ? 'Showing the first ' + MAXROWS.toLocaleString('en-IN') + ' rows here; the downloaded Excel has all of them.' : '';
+}
+$('q').addEventListener('input', () => RESULT && renderTable());
+$('st').addEventListener('change', () => RESULT && renderTable());
+$('runBtn').addEventListener('click', runRecon);
+
+/* ════════════════════════ EXCEL OUTPUT ═══════════════════════════════
+   Same workbook the macro leaves behind: Ops File and Bank Statement with the two added
+   columns and highlighted source rows, plus the Reconciliation sheet with its summary block. */
+async function downloadExcel(){
+  if (!RESULT) return;
+  const btn = $('dlBtn'); btn.disabled = true; const old = btn.textContent; btn.textContent = 'Building Excel…'; await tick();
+  try {
+    const wb = new ExcelJS.Workbook(); wb.created = new Date();
+    const fillOf = v => ({type:'pattern', pattern:'solid', fgColor:{argb:argb(v)}});
+    const HI = {'MATCHED':CLR.MATCHED, 'AMOUNT MISMATCH':CLR.MISMATCH, 'NOT IN BANK':CLR.NOTBANK, 'NOT IN OPS':CLR.NOTBANK};
+
+    const addSource = (name, rows, newCols, hi) => {
+      const ws = wb.addWorksheet(name), lc = lastCol(rows);
+      rows.forEach((r, i) => { const v = []; for (let c = 0; c < lc; c++) { const x = r && r[c] !== undefined ? r[c] : null; v.push(x === '' ? null : x); } ws.addRow(v); });
+      newCols.forEach(c => { ws.getCell(1, c + 1).font = {bold:true}; });
+      for (const h of hi) for (let c = 1; c <= lc; c++) ws.getCell(h.row + 1, c).fill = fillOf(HI[h.status]);
+      ws.views = [{state:'frozen', ySplit:1}];
+    };
+    addSource('Ops File', RESULT.ops, RESULT.oNew, RESULT.hiOps);
+    addSource('Bank Statement', RESULT.bank, RESULT.bNew, RESULT.hiBank);
+
+    const ws = wb.addWorksheet('Reconciliation');
+    const hdr = ['Final UTR','Enterprise Name','Ops Amount','Bank Amount','Difference','Status'];
+    ws.addRow(hdr);
+    for (let c = 1; c <= 6; c++) { const h = ws.getCell(1, c); h.font = {bold:true, color:{argb:'FFFFFFFF'}}; h.fill = fillOf(CLR.HEADER); h.alignment = {horizontal:'center'}; }
+    const STY = {'MATCHED':[CLR.MATCHED, argb(CLR.MATCHED_FNT)], 'AMOUNT MISMATCH':[CLR.MISMATCH, argb(CLR.MISMATCH_FNT)],
+                 'NOT IN BANK':[CLR.NOTBANK, NOTBANK_FONT_RGB], 'NOT IN OPS':[CLR.NOTOPS, argb(CLR.NOTOPS_FNT)]};
+    RESULT.out.forEach((r, i) => {
+      const row = ws.addRow([r.utr, r.ent, r.ops === null ? null : r.ops, r.bank === null ? null : r.bank, r.diff, r.status]);
+      row.getCell(1).numFmt = '@'; for (const c of [3,4,5]) row.getCell(c).numFmt = '#,##0.00';
+      const f = ws.getCell(i + 2, 6); f.fill = fillOf(STY[r.status][0]); f.font = {color:{argb:STY[r.status][1]}};
+    });
+    const dataEnd = RESULT.out.length + 1, sumRow = dataEnd + 3, s = RESULT.summary;
+    ws.getCell(sumRow, 1).value = 'RECONCILIATION SUMMARY';
+    ws.mergeCells(sumRow, 1, sumRow, 6);
+    const sh = ws.getCell(sumRow, 1); sh.font = {bold:true, color:{argb:'FFFFFFFF'}}; sh.fill = fillOf(CLR.HEADER); sh.alignment = {horizontal:'center'};
+    [['Matched','MATCHED',s.matched,CLR.MATCHED,argb(CLR.MATCHED_FNT)],
+     ['Amount Mismatch','AMOUNT MISMATCH',s.mismatch,CLR.MISMATCH,argb(CLR.MISMATCH_FNT)],
+     ['Not in Bank','NOT IN BANK',s.notBank,CLR.NOTBANK,NOTBANK_FONT_RGB],
+     ['Not in Ops','NOT IN OPS',s.notOps,CLR.NOTOPS,argb(CLR.NOTOPS_FNT)]].forEach((t, k) => {
+      const r = sumRow + 1 + k;
+      ws.getCell(r, 1).value = t[0]; ws.getCell(r, 1).fill = fillOf(t[3]); ws.getCell(r, 1).font = {bold:true, color:{argb:t[4]}};
+      ws.getCell(r, 2).value = {formula:'COUNTIF(F2:F'+dataEnd+',"'+t[1]+'")', result:t[2]};
+    });
+    [['Total Ops Amount (Matched)','SUMIF(F2:F'+dataEnd+',"MATCHED",C2:C'+dataEnd+')', s.opsMatched],
+     ['Total Bank Amount (Matched)','SUMIF(F2:F'+dataEnd+',"MATCHED",D2:D'+dataEnd+')', s.bankMatched],
+     ['Net Unreconciled Difference','SUMIF(F2:F'+dataEnd+',"AMOUNT MISMATCH",E2:E'+dataEnd+')', s.netDiff]].forEach((t, k) => {
+      const r = sumRow + 6 + k;
+      ws.getCell(r, 1).value = t[0]; ws.getCell(r, 1).font = {bold:true};
+      ws.getCell(r, 2).value = {formula:t[1], result:t[2]}; ws.getCell(r, 2).numFmt = '#,##0.00';
+    });
+    [34, 38, 16, 16, 16, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.getColumn(1).width = 22;
+    ws.views = [{state:'frozen', ySplit:1}];
+
+    const buf = await wb.xlsx.writeBuffer();
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    saveAs(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+           'Add_Money_Recon_' + p(d.getDate()) + p(d.getMonth() + 1) + String(d.getFullYear()).slice(2) + '.xlsx');
+  } catch (e) { log('Excel error: ' + (e.message || e), 'le'); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+$('dlBtn').addEventListener('click', downloadExcel);
+</script>
+</body>
+</html>
