@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recon OS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+:root{--bg:#eef2f7;--surf:#fff;--bdr:#d5deea;--acc:#1b4b82;--acc2:#153c6a;--navy:#0f2540;--navy2:#16345a;--txt:#1a2433;--mut:#5a6b82;
+  --grn:#1e7e34;--red:#c62828;--ylw:#b26a00;--r:10px;--font:'Segoe UI',system-ui,sans-serif;--mono:Consolas,'Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--txt);font-size:13px;padding-bottom:40px}
+.band{background:var(--navy);padding:14px 24px;display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1b4b82,#4da3ff);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:800}
+.band h1{color:#fff;font-size:16px;font-weight:700;letter-spacing:.3px}
+.band .sub{color:#9db6d3;font-size:11px;margin-top:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 18px}
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:0 1px 3px rgba(15,37,64,.08);padding:18px 20px;margin-bottom:14px}
+.ctitle{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.ctitle .sp{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1.5fr;gap:14px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.hidden{display:none!important}
+code{background:#eef2f7;border:1px solid #dbe3ee;border-radius:4px;padding:0 5px;font-size:11px;font-family:var(--mono)}
+
+/* drop zones */
+.drop{border:2px dashed var(--bdr);border-radius:var(--r);padding:20px 16px;text-align:center;transition:border-color .15s,background .15s;position:relative}
+.drop.over,body.dragging .drop{border-color:#4da3ff;background:#e3eefb}
+.drop.ok{border-color:var(--grn);border-style:solid;background:#f6fbf7}
+.drop.bad{border-color:var(--red);border-style:solid;background:#fdf3f2}
+.drop .ic{font-size:26px;margin-bottom:4px}
+.drop .t{font-size:14px;font-weight:600}
+.drop .s{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.5}
+.pick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:background .15s;position:relative}
+.btn-p{background:var(--acc);color:#fff}.btn-p:hover:not(:disabled){background:var(--acc2)}.btn-p:disabled{background:#9db6d3;cursor:not-allowed}
+.btn-o{background:#fff;color:var(--acc);border-color:#b9cde6}.btn-o:hover{background:#e3eefb}
+.btn-g{background:var(--grn);color:#fff}.btn-g:hover:not(:disabled){background:#17652a}.btn-g:disabled{opacity:.5;cursor:not-allowed}
+.btn-x{background:#fff;color:var(--red);border-color:#f0c4c4;padding:6px 12px;font-size:12px}.btn-x:hover{background:#fdecea}
+.btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;width:100%;height:100%}
+.big{padding:14px 34px;font-size:16px;border-radius:10px;letter-spacing:.2px}
+.fstat{margin-top:10px;font-size:12px;line-height:1.6;min-height:18px}
+.fstat.ok{color:var(--grn)}.fstat.er{color:var(--red)}.fstat.wt{color:var(--ylw)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;justify-content:center}
+.chip{border:1px solid var(--bdr);border-radius:14px;padding:3px 11px;font-size:11.5px;font-weight:600;background:#f4f8fd;color:var(--acc)}
+.chip.z{color:#8a97a8;background:#f6f7f9}.chip.w{color:var(--ylw);background:#fff4e0;border-color:#f0d49b}.chip.e{color:var(--red);background:#fdecea;border-color:#f0c4c4}
+
+.runrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--mut)}
+.pbar{height:6px;background:var(--bdr);border-radius:99px;overflow:hidden;margin-top:12px;display:none}
+.pbar.vis{display:block}.pfill{height:100%;background:var(--acc);width:0%;transition:width .15s}
+.ptxt{font-size:11.5px;color:var(--mut);margin-top:6px;min-height:16px}
+details.set{margin-top:12px;font-size:12px}
+details.set summary{cursor:pointer;color:var(--acc);font-weight:600}
+.tols{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.tols label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--mut);font-weight:600}
+.tols input{width:90px;border:1px solid var(--bdr);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px}
+
+/* coverage */
+.cov{display:grid;grid-template-columns:130px 1fr 215px;gap:6px 12px;align-items:center;font-size:12px}
+.cov .nm{font-weight:700}
+.strip{display:flex;gap:2px;flex-wrap:wrap}
+.cell{width:17px;height:17px;border-radius:3px;font-size:9px;line-height:17px;text-align:center;color:#fff;font-weight:700;cursor:default}
+.cell.f{background:#2e9e4a}.cell.p{background:#e0a21c}.cell.n{background:#d44}
+.cov .rt{color:var(--mut);white-space:nowrap}.cov .rt b{color:var(--txt)}
+.miss{grid-column:2/4;font-size:11px;color:var(--red);margin-top:-2px}
+
+/* result */
+.banner{border-radius:var(--r);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.banner.ok{background:#e6f4ea;border:1px solid #b7dfc1;color:#17652a}
+.banner.wn{background:#fff4e0;border:1px solid #f0d49b;color:#7a4a00}
+.banner.er{background:#fdecea;border:1px solid #f0c4c4;color:#9a1f1f}
+.banner .big1{font-size:18px;font-weight:700}.banner .sm{font-size:12px;opacity:.9}.banner .sp{margin-left:auto}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px;margin-bottom:14px}
+.pc{background:#fff;border:1px solid var(--bdr);border-top:4px solid var(--acc);border-radius:var(--r);padding:13px 15px;cursor:pointer;transition:box-shadow .15s}
+.pc:hover{box-shadow:0 3px 10px rgba(15,37,64,.15)}
+.pc.ok{border-top-color:#2e9e4a}.pc.wn{border-top-color:#e0a21c}.pc.er{border-top-color:#d44}.pc.zz{border-top-color:#b8c2d0;opacity:.8}
+.pc .h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.pc .h .st{margin-left:auto;font-size:10.5px;padding:2px 9px;border-radius:10px}
+.st.ok{background:#e6f4ea;color:#17652a}.st.wn{background:#fff4e0;color:#8a5200}.st.er{background:#fdecea;color:#9a1f1f}.st.zz{background:#eef0f3;color:#6b7686}
+.pc .big2{font-size:22px;font-weight:700;margin-top:8px}.pc .big2 small{font-size:12px;color:var(--mut);font-weight:600}
+.pc .ln{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut);margin-top:4px}.pc .ln b{color:var(--txt);font-family:var(--mono);font-weight:600}
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--navy);flex-wrap:wrap}
+.tab{border:none;background:#dbe6f3;color:var(--acc);font:inherit;font-size:12.5px;font-weight:700;padding:8px 16px;border-radius:7px 7px 0 0;cursor:pointer}
+.tab:hover{background:#cddcee}.tab.act{background:var(--navy);color:#fff}
+.tab .n{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font-size:10px;background:rgba(0,0,0,.12)}
+.tab.act .n{background:rgba(255,255,255,.2)}
+.tab .n.r{background:#fdecea;color:#9a1f1f}.tab.act .n.r{background:#c62828;color:#fff}
+.panel{background:#fff;border:1px solid var(--bdr);border-top:none;border-radius:0 0 var(--r) var(--r);padding:16px}
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fbar input,.fbar select{border:1px solid var(--bdr);border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;background:#fff;color:var(--txt)}
+.fbar input{width:230px}.fbar .cnt{margin-left:auto;font-size:11px;color:var(--mut)}
+.tw{overflow:auto;max-height:560px;border:1px solid var(--bdr);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{position:sticky;top:0;z-index:1;background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-size:11px;white-space:nowrap}
+thead th.num,td.num{text-align:right}
+tbody td{padding:6px 10px;border-bottom:1px solid #e6edf5;white-space:nowrap}
+td.num{font-family:var(--mono)}td.mono{font-family:var(--mono)}td.wrap{white-space:normal;min-width:220px;word-break:break-word}
+tbody tr:hover{background:#f2f7fd}
+tfoot td{padding:8px 10px;font-weight:700;background:#eef3fa;border-top:2px solid var(--navy);font-family:var(--mono);text-align:right;position:sticky;bottom:0}
+tfoot td:first-child{text-align:left;font-family:var(--font)}
+.neg{color:#9a1f1f}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.p-ok{background:#C6EFCE;color:#006300}.p-ref{background:#d7f0e6;color:#0b5d44}.p-diff{background:#FFFF99;color:#6a5600}.p-pen{background:#dbeafe;color:#1d4e9a}
+.p-nb{background:#fdd;color:#9C0006}.p-zero{background:#eceff3;color:#6b7686}.p-bo{background:#FFE6DD;color:#7a2a00}.p-per{background:#e7e9f5;color:#3a3f8a}.p-no{background:#FFE6DD;color:#000082}.p-oth{background:#f1f3f6;color:#5a6b82}
+.sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--acc);margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bdr)}
+.sec:first-child{margin-top:0}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:6px}
+.kv>div{border:1px solid var(--bdr);border-radius:8px;padding:9px 12px}.kv .l{font-size:10.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.3px}.kv .v{font-family:var(--mono);font-size:14px;font-weight:700;margin-top:3px}
+.note{font-size:11.5px;color:var(--mut);margin:8px 0;line-height:1.5}
+.warns{font-size:12px;line-height:1.6;color:#7a4a00;background:#fff4e0;border:1px solid #f0d49b;border-radius:8px;padding:10px 14px;max-height:180px;overflow:auto}
+.tick{color:var(--grn);font-weight:700}.cross{color:var(--red);font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="logo">OS</div>
+  <div>
+    <h1>Recon OS — one-click reconciliation</h1>
+    <div class="sub">Upload the bank statement and the month's files or folder (zips included). Everything is detected and reconciled at once.</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="two">
+    <div class="card">
+      <div class="ctitle">1 · Bank statement</div>
+      <div class="drop" id="bankDrop">
+        <div class="ic">🏦</div>
+        <div class="t">The account statement (.xlsx / .xls / .csv)</div>
+        <div class="s">One statement for all products. Header row, number format and balances are detected automatically.</div>
+        <div class="pick"><span class="btn btn-o">Choose statement<input type="file" id="bankIn" accept=".xlsx,.xls,.xlsm,.csv"></span></div>
+      </div>
+      <div class="fstat" id="bankStat"></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">2 · Settlement files <span class="sp"><button class="btn btn-x" id="clearBtn">✕ Clear all</button></span></div>
+      <div class="drop" id="filesDrop">
+        <div class="ic">📁</div>
+        <div class="t">Drop the month's folder, files or zips here</div>
+        <div class="s">NETC · NFS · RuPay · UPI · Add Money Ops file — in any mix, in sub-folders or zips. Each product is recognised automatically. Adding more files adds to what is loaded.</div>
+        <div class="pick">
+          <span class="btn btn-o">📁 Choose folder<input type="file" id="folderIn" webkitdirectory multiple></span>
+          <span class="btn btn-o">🗂 Choose files<input type="file" id="filesIn" multiple></span>
+        </div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>
+      <div class="ptxt" id="ptxt"></div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="covCard">
+    <div class="ctitle">What was found <span class="sp" id="covSum"></span></div>
+    <div class="cov" id="cov"></div>
+    <div class="note" id="covNote"></div>
+  </div>
+
+  <div class="card">
+    <div class="runrow">
+      <button class="btn btn-p big" id="runBtn" disabled>⚡ Reconcile everything</button>
+      <span class="hint" id="runHint">Add the bank statement and the settlement files to begin</span>
+    </div>
+    <details class="set">
+      <summary>Tolerances (₹)</summary>
+      <div class="tols" id="tols"></div>
+      <div class="note">A cycle is MATCHED when the difference is within the tolerance. Defaults are the values of the individual tools.</div>
+    </details>
+  </div>
+
+  <div id="results" class="hidden">
+    <div id="banner"></div>
+    <div class="pcards" id="pcards"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="panel" id="panel"></div>
+  </div>
+
+</div>
+
+<script>/*__ENGINE__*/</script>
+<script>/*__EXPORT__*/</script>
+<script>/*__UI__*/</script>
+</body>
+</html>

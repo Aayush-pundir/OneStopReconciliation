@@ -3,6 +3,71 @@
 const HELP = {
 
 /* ───────────────────────────── FASTAG ───────────────────────────── */
+/* ───────────────────────────── RECON OS (one click) ───────────────────────────── */
+os: {
+  rules: [
+    ['Purpose', `<p>Reconciles <b>everything in one go</b>: FASTag (NETC), NFS, RuPay, UPI and – if its file is present – Add money to Pool. You give it the <b>bank statement</b> and the month's <b>files or folder</b>; it works out what each file is, splits the bank statement by product, matches every cycle and reports what needs attention.</p>`],
+    ['What you can upload', `<ul>
+      <li><b>One bank statement</b> (.xlsx / .xls / .csv) with all products in it. The header row is found automatically (<code>Transaction Details</code> or <code>Narrative</code>, plus <code>Debit</code> and <code>Credit</code>); Indian number formats like <code>49,24,232.56</code> and balances like <code>5,85,79,918.62 CR</code> are understood.</li>
+      <li><b>Settlement files</b> in any mix: a whole folder (sub-folders included), individual files, or <b>.zip</b> files – even zips inside zips (e.g. the NETC daily zips). Adding more files adds to what is already loaded.</li>
+      <li>Anything that is not a data file (images, notes) is listed as <i>ignored</i>.</li></ul>`],
+    ['How each file is recognised', `<table class="rt"><tr><th>Product</th><th>Recognised by</th></tr>
+      <tr><td>FASTag (NETC)</td><td>name <code>DSRReport_… ISSUER_YYYY-MM-DD-N</code>, or a DSR with columns <code>Settlement Date</code> … <code>Txn_Status</code>. Cycle = the <code>-N</code> at the end of the name</td></tr>
+      <tr><td>RuPay</td><td>name <code>DSRSummaryReport_… ISSUER_YYYY-MM-DD-N</code>, or a DSR with <code>Status(Approved/Declined)</code></td></tr>
+      <tr><td>NFS</td><td>name <code>NTSLERO{DDMMYY}_{N}C</code>, or a “Daily Settlement Statement” with Issuer WDL lines (HTML-xls, xls or xlsx)</td></tr>
+      <tr><td>UPI</td><td>name <code>UPI_NTSLERT{DDMMYY}_{cycle}</code>, or a “Unified Payments Interface” statement</td></tr>
+      <tr><td>Add Money Ops</td><td>a sheet with <code>TransactionCategory</code>, <code>TransactionType</code>, <code>UtrNo</code>, <code>TotalTransactionAmount</code></td></tr></table>
+      <p>Two files for the same date + cycle (for example a loose copy and the one inside a zip) count once; if their amounts differ, the first is used and a warning is shown.</p>`],
+    ['Which bank lines belong to which product', `<table class="rt"><tr><th>Bank narrative</th><th>Product, reference date and cycle</th></tr>
+      <tr><td><code>NETC … _00YYYYMMDDCC</code></td><td>FASTag – date YYYYMMDD, cycle CC</td></tr>
+      <tr><td><code>NFS … _00YYYYMMDDCC</code></td><td>NFS – C<i>CC</i></td></tr>
+      <tr><td><code>RUPAY … _00YYYYMMDDCC</code></td><td>RuPay – C<i>CC</i> (narratives with <code>Rev_</code> are skipped)</td></tr>
+      <tr><td><code>Eroute UPI Setl {cycle} {DDMMYY}</code> and the NPCI / DC forms of the UPI tool</td><td>UPI – cycle 10C, 1C … 9C, DC1, DC2</td></tr>
+      <tr><td>everything else</td><td>not part of NETC/NFS/RuPay/UPI. Credits there go to Add Money; the rest (payouts, internal transfers) are listed but not reconciled</td></tr></table>`],
+    ['Matching rules (per product)', `<ul>
+      <li>Every source cycle is matched to the bank line(s) with the <b>same date + cycle</b>. Several bank lines for the same reference are <b>added together</b>.</li>
+      <li>Amounts use the bank's point of view: <b>credit = +, debit = −</b>. Source amount: FASTag = DSR final net; NFS = Final Settlement Amount (as a debit); RuPay = DSR final net; UPI = NTSL credit − debit.</li>
+      <li><b>Tolerance</b> (editable): FASTag ₹0.01 and RuPay/UPI ₹1 (difference below it = match), NFS ₹1 (up to and including). Add Money ₹0.01.</li>
+      <li>NFS: a settlement of 0 is a <b>zero cycle</b> – nothing is expected from the bank.</li></ul>`],
+    ['Statuses', `<table class="rt"><tr><th>Status</th><th>Meaning</th></tr>
+      <tr><td>MATCHED</td><td>amounts agree within the tolerance</td></tr>
+      <tr><td>MATCHED – REFERENCE MISMATCH</td><td>no bank line for that date+cycle, but an unused bank line with the <b>same cycle and the same amount</b> exists (the bank narrative carries a different date). Fix the reference</td></tr>
+      <tr><td>DIFFERENCE</td><td>bank line found but the amount differs</td></tr>
+      <tr><td>PENDING</td><td>no bank line yet, and the statement ends before the usual posting date (the product's observed posting lag, at least 1 day)</td></tr>
+      <tr><td>NOT IN BANK</td><td>no bank line although the statement covers the posting date – investigate</td></tr>
+      <tr><td>ZERO – NO ENTRY EXPECTED</td><td>source amount is 0</td></tr>
+      <tr><td>BANK ONLY</td><td>bank line for a cycle inside the loaded period, but no source file for it (often a missing file)</td></tr>
+      <tr><td>PRIOR / NEXT PERIOD</td><td>bank line for a cycle <b>before / after</b> the loaded files (e.g. 30-Sep and 1–5 Nov in an October run). <b>Carry-over, not an error</b>; listed on the Carry-over tab</td></tr>
+      <tr><td>NOT IN OPS</td><td>Add Money: bank credit without a matching Ops UTR</td></tr></table>`],
+    ['Add money to Pool', `<p>Same rules as the Add money to Pool tab (macro v3): Ops credits of category Add Money / Ops Adjustment, UTR read from the bank narrative, same-UTR rows added together, MATCHED / AMOUNT MISMATCH / NOT IN BANK / NOT IN OPS. Only bank <b>credits</b> that no other product claimed are used. Without an Ops file the credits are just counted and listed as waiting.</p>`],
+    ['Statement check', `<p>Opening balance + credits − debits must equal the closing balance printed on the statement; the Overview shows ✓ or ✗. This proves the whole statement was read.</p>`],
+    ['How this differs from the separate tabs', `<ul>
+      <li>One bank statement for all products instead of one prepared file per product.</li>
+      <li>Bank lines of other months are carry-over, so they no longer show up as a false “difference” (e.g. the FASTag bridge).</li>
+      <li>A zero NFS cycle is a normal zero cycle (the NFS tab counts it as a failed file).</li>
+      <li>NETC cycle numbers come from the file name, so a missing file cannot shift the others.</li>
+      <li>RuPay: no bank line is shown as NOT IN BANK / PENDING instead of silently assuming the DSR amount.</li>
+      <li>Duplicate bank references are summed (FASTag/NFS tabs used the last one); the reference-mismatch check applies to all products (was FASTag only).</li>
+      <li>UPI: the posting day comes from the bank line, not from the fixed T / T+1 cycle table.</li></ul>`],
+    ['Output', `<p><b>Download full report (Excel)</b>: Summary, Exceptions, Carry-over, one sheet per product (with the DSR/NTSL detail columns), Add Money, every Bank line with its result, and the Files log. File: <code>Recon_OS_YYYY-MM_DDMMYY.xlsx</code>.</p>`],
+  ],
+  how: [
+    ['Steps', `<ol>
+      <li><b>Bank statement</b> – choose the account statement file.</li>
+      <li><b>Settlement files</b> – drop the month's folder (or its zip) on the box, or use <b>Choose folder</b> / <b>Choose files</b>. You can add several times.</li>
+      <li>Check <b>What was found</b>: the squares show each day of each product (green = all cycles present, amber = some missing, red = none) and missing cycles are listed.</li>
+      <li>Click <b>⚡ Reconcile everything</b>.</li>
+      <li>Read the banner and the product cards, then open the tabs: <b>Overview</b>, <b>Exceptions</b>, <b>Carry-over</b>, the product tabs, <b>Bank lines</b>, <b>Files</b>.</li>
+      <li>Click <b>⬇ Download full report (Excel)</b>.</li></ol>`],
+    ['Tips', `<ul>
+      <li>You do not have to sort or rename anything: folders, zips-in-zips and mixed files are fine.</li>
+      <li>Include the <b>Add Money Ops file</b> with the other files to reconcile the Add Money credits as well.</li>
+      <li>If the statement ends before the last day's money has posted, those cycles show <b>PENDING</b> instead of NOT IN BANK; download a later statement and run again.</li>
+      <li><b>✕ Clear all</b> starts a new month.</li>
+      <li>The tolerances sit under the Reconcile button.</li></ul>`],
+  ]
+},
+
 fastag: {
   rules: [
     ['Purpose', `<p>Reconciles NETC FASTag settlement: each <b>DSR cycle</b> (one DSR file) against the <b>bank debit</b> for that cycle.</p>`],

@@ -11,8 +11,9 @@ import re
 
 ROOT = pathlib.Path(__file__).parent
 
-# id, tab label, tab subtitle, source file  (tab order = list order)
+# id, tab label, tab subtitle, source file  (tab order = list order; None = assembled by assemble_os)
 MODULES = [
+    ("os",     "Recon OS", "Upload once, reconcile all", None),      # assembled from src/os/
     ("fastag", "FASTag", "NETC DSR × Bank",     "fastag.html"),
     ("nfs",    "NFS",    "NTSL × Bank",         "nfs.html"),
     ("rupay",  "RuPay",  "DSR × Bank",          "rupay.html"),
@@ -31,6 +32,18 @@ def themed(mid: str, html: str) -> str:
     return pat.sub(lambda m: block + m.group(0), html, count=1)
 
 
+def assemble_os() -> str:
+    """Recon OS = src/os/os.html with engine.js, export.js and ui.js inlined."""
+    d = ROOT / "src" / "os"
+    html = (d / "os.html").read_text(encoding="utf-8")
+    for marker, fname in (("/*__ENGINE__*/", "engine.js"), ("/*__EXPORT__*/", "export.js"), ("/*__UI__*/", "ui.js")):
+        js = (d / fname).read_text(encoding="utf-8")
+        assert "</script" not in js.lower(), fname
+        assert html.count(marker) == 1, marker
+        html = html.replace(marker, js)
+    return html
+
+
 def embed(html: str) -> str:
     """JSON-encode and neutralise sequences that would end/alter the host <script> block."""
     s = json.dumps(html, ensure_ascii=False)
@@ -41,7 +54,7 @@ def main() -> None:
     shell = (ROOT / "src" / "shell.html").read_text(encoding="utf-8")
     mods = []
     for mid, label, desc, fname in MODULES:
-        html = (ROOT / "src" / "modules" / fname).read_text(encoding="utf-8")
+        html = assemble_os() if fname is None else (ROOT / "src" / "modules" / fname).read_text(encoding="utf-8")
         mods.append({"id": mid, "label": label, "desc": desc, "html": themed(mid, html)})
     help_js = (ROOT / "src" / "help.js").read_text(encoding="utf-8")
     assert "</script" not in help_js.lower()
