@@ -187,7 +187,8 @@ function parseRupayDsr(rows, filename) {
   const r = { pos_count: 0, pos_amt: 0, ecom_count: 0, ecom_amt: 0, pos_gc_count: 0, pos_gc_amt: 0, ecom_gc_count: 0, ecom_gc_amt: 0, cash_pos_count: 0, cash_pos_amt: 0,
     npci_assess_pos: 0, npci_assess_ecom: 0, npci_assess_pos_gc: 0, npci_assess_ecom_gc: 0, npci_assess_cash: 0, npci_proc_ecom: 0, npci_proc_pos: 0,
     int_income_cash: 0, int_income_pos: 0, int_income_ecom: 0, int_income_pos_gc: 0, int_income_ecom_gc: 0, refund_pos: 0, refund_ecom: 0, qsparc_settled: 0,
-    chargeback_pos: 0, chargeback_ecom: 0, repres_pos: 0, repres_ecom: 0, gst: 0, final_net: 0 };
+    chargeback_pos: 0, chargeback_ecom: 0, repres_pos: 0, repres_ecom: 0, gst: 0, final_net: 0,
+    dms_open_pos_cnt: 0, dms_open_pos_amt: 0, dms_open_ecom_cnt: 0, dms_open_ecom_amt: 0, open_npci_proc_ecom: 0, open_npci_proc_pos: 0 };
   let cB = null, cS = null, cC = null, found = false;
   for (let row of rows) {
     if (!row || row.length < 10) continue;
@@ -220,7 +221,8 @@ function parseRupayDsr(rows, filename) {
     if (cC === 'DMS Auth Transaction' && cS === 'A' && tt !== null) {
       const iq = tt && (tt.includes('qSPARC') || tt.includes('qSparc'));
       if (!RU_NO_FEE.includes(tt) && !iq && setCR === 0 && othDR > 0) {
-        if (ch === 'ECOM') r.npci_proc_ecom += othDR; else if (ch === 'POS') r.npci_proc_pos += othDR;
+        if (ch === 'ECOM') { r.npci_proc_ecom += othDR; if (sf(cB) !== ECOM_GC_BIN) { r.dms_open_ecom_cnt += cnt; r.dms_open_ecom_amt += sf(row[12]); r.open_npci_proc_ecom += othDR; } }
+        else if (ch === 'POS') { r.npci_proc_pos += othDR; if (sf(cB) !== ECOM_GC_BIN) { r.dms_open_pos_cnt += cnt; r.dms_open_pos_amt += sf(row[12]); r.open_npci_proc_pos += othDR; } }
       }
     }
   }
@@ -279,7 +281,7 @@ function parseUpiNtsl(rows, filename) {
   const colTxn = fi('no. of', 'no of', 'count', 'txn') < 0 ? 1 : fi('no. of', 'no of', 'count', 'txn');
   const colDebit = fi('debit') < 0 ? 2 : fi('debit'), colCred = fi('credit') < 0 ? 3 : fi('credit');
   const SKIP = /^\s*(total|grand|sub.?total|net settlement|settlement amount|opening|closing)/i;
-  let debit = 0, credit = 0, txnDebit = 0, txnCredit = 0, nrows = 0;
+  let debit = 0, credit = 0, txnDebit = 0, txnCredit = 0, nrows = 0; const lines = [];
   for (let ri = 5; ri < rows.length; ri++) {
     const r = rows[ri]; if (!r || !r[colDesc]) continue;
     const desc = String(r[colDesc]).trim(); if (!desc || SKIP.test(desc)) continue;
@@ -287,10 +289,10 @@ function parseUpiNtsl(rows, filename) {
     const deb = sf(r[colDebit]), crd = sf(r[colCred]);
     if (deb === 0 && crd === 0) continue;
     if (isDC && !['Net Adjusted Amount', 'Penalty', 'GST on Penalty', 'TDS on GST'].includes(rem)) continue;
-    debit += deb; credit += crd; nrows++;
+    debit += deb; credit += crd; nrows++; lines.push({ desc, txns: Math.round(sf(r[colTxn])), debit: deb, credit: crd, remarks: rem });
     if (rem === 'Transaction Amount') { txnDebit += deb; txnCredit += crd; }
   }
-  return { date, cycle, filename, rows: nrows, debit: r2(debit), credit: r2(credit), net: r2(credit - debit), txnDebit: r2(txnDebit), txnCredit: r2(txnCredit) };
+  return { date, cycle, filename, lines, rows: nrows, debit: r2(debit), credit: r2(credit), net: r2(credit - debit), txnDebit: r2(txnDebit), txnCredit: r2(txnCredit) };
 }
 
 /* ── NFS NTSL (HTML-xls or xlsx) ───────────────────────────────────────── */
@@ -306,7 +308,7 @@ function nfsBuild(cur) {
   const disp = cur.disputeAmt || 0;
   const settTot = r4(cur.atmAmt + atmTot + cur.microAmt + mTot + swTot - disp + biTot);       // control-sheet formula X = D+G+M+Q+U−W+K
   return { date: cur.date, finalAmt: cur.finalAmt, settTot, atmCount: cur.atmCount, atmAmt: cur.atmAmt, atmTotFee: atmTot, biCount: cur.biCount, biTot,
-           microCount: cur.microCount, microAmt: cur.microAmt, mTot, swCnt, swTot, disp, cycleFromName: cur.cycleFromName || null };
+           microCount: cur.microCount, microAmt: cur.microAmt, mTot, swCnt, swTot, disp, dispCount: cur.dispCount || 0, cycleFromName: cur.cycleFromName || null };
 }
 function nfsCycleFromName(fname) { const m = String(fname).match(/_(\d+)C\./i); return m ? +m[1] : null; }
 function nfsDateFromName(fname) {
@@ -323,7 +325,7 @@ function nfsParseHtml(text, fname) {
   let finalAmt = 0;
   const tdVals = [...text.slice(fsaIdx, fsaIdx + 400).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(x => x[1].replace(/<[^>]+>/g, '').trim());
   for (const v of tdVals) { const n = parseFloat(v); if (n > 0) { finalAmt = n; break; } }             // 0 = a zero cycle (no debit expected)
-  let atmCount = 0, atmAmt = 0, atmFee = null, microAmt = 0, microCount = 0, biCount = 0, disputeAmt = 0;
+  let atmCount = 0, atmAmt = 0, atmFee = null, microAmt = 0, microCount = 0, biCount = 0, disputeAmt = 0, dispCount = 0;
   m = text.match(/Issuer WDL Transaction Amount<\/td>\s*<td[^>]*>(\d+)<\/td>\s*<td[^>]*>([\d.]+)/i); if (m) { atmCount = +m[1]; atmAmt = +m[2]; }
   m = text.match(/Issuer WDL Approved Fee<\/td>\s*<td[^>]*>(\d+)<\/td>\s*<td[^>]*>([\d.]+)/i); if (m) atmFee = +m[2];
   m = text.match(/Issuer WDL Transaction Amount \(Micro-ATM\)<\/td>\s*<td[^>]*>\d+<\/td>\s*<td[^>]*>([\d.]+)/i); if (m) microAmt = +m[1];
@@ -331,13 +333,15 @@ function nfsParseHtml(text, fname) {
   m = text.match(/Issuer BI Approved Fee<\/td>\s*<td[^>]*>(\d+)/i); if (m) biCount = +m[1];
   const dispIdx = text.indexOf('Dispute Adjustments');
   if (dispIdx >= 0) {
-    const chunk = text.slice(dispIdx, dispIdx + 800), adjIdx = chunk.indexOf('Adjustment Sub Totals');
-    if (adjIdx >= 0) {
-      const t = [...chunk.slice(adjIdx, adjIdx + 300).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(x => x[1].replace(/<[^>]+>/g, '').trim());
-      const deb = parseFloat(t[2]) || 0, cre = parseFloat(t[3]) || 0; if (deb || cre) disputeAmt = deb - cre;
+    const chunk = text.slice(dispIdx, dispIdx + 1500);
+    const rowM = chunk.match(/<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?Adjustment Sub Totals[\s\S]*?<\/tr>/i);                 // the whole sub-total row: cells are <th> in some files, <td> in others
+    if (rowM) {
+      const cells = [...rowM[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x => x[1].replace(/<[^>]+>/g, '').trim());       // [label, count, debit, credit]
+      const deb = parseFloat(cells[2]) || 0, cre = parseFloat(cells[3]) || 0;
+      if (deb || cre) { disputeAmt = cre - deb; const m2 = chunk.match(/Total (?:CREDIT|DEBIT) Adjustment Amount<\/td>\s*<td[^>]*>(\d+)/i); dispCount = m2 ? +m2[1] : 0; }   // a credit adjustment REDUCES the settlement
     }
   }
-  return [nfsBuild({ date, finalAmt, atmCount, atmAmt, atmFee, biCount, microAmt, microCount, disputeAmt, cycleFromName: nfsCycleFromName(fname) })];
+  return [nfsBuild({ date, finalAmt, atmCount, atmAmt, atmFee, biCount, microAmt, microCount, disputeAmt, dispCount, cycleFromName: nfsCycleFromName(fname) })];
 }
 function nfsExtractDate(s, row) {
   let m = s.match(/as on\s+(\d{2})\/(\d{2})\/(\d{4})/i); if (m) return isoOf(+m[3], +m[2], +m[1]);
@@ -368,8 +372,8 @@ function nfsParseRows(rows, fname) {
     else if (c0 === 'Issuer WDL Transaction Amount (Micro-ATM)') cur.microAmt = toN(row[2]);
     else if (c0 === 'Issuer WDLTransaction (Micro ATM)' && row[1] && String(row[1]).includes('100 and above')) cur.microCount += toI(row[2]);
     else if (c0 === 'Issuer BI Approved Fee' && !c0.includes('GST')) cur.biCount = toI(row[1]);
-    else if (cur.inDispute && c0 === 'Adjustment Sub Totals') { const d = toN(row[2]), cr = toN(row[3]); if (d || cr) cur.disputeAmt = d - cr; }
-    else if (cur.inDispute && c0 === 'Net Adjusted Amount') { const v = toN(row[2]); if (v !== 0) cur.disputeAmt = v; }
+    else if (cur.inDispute && c0 === 'Adjustment Sub Totals') { const d = toN(row[2]), cr = toN(row[3]); if (d || cr) { cur.disputeAmt = cr - d; cur.dispCount = toI(row[1]); } }
+    else if (cur.inDispute && c0 === 'Net Adjusted Amount') { const v = toN(row[3]) - toN(row[2]); if (v !== 0) cur.disputeAmt = v; }
   }
   if (cur && cur.seenFinal) blocks.push(nfsBuild(cur));
   return blocks;
@@ -553,29 +557,29 @@ function prepSources(intakeRes, warnings) {
     const L = intakeRes.netc.slice();
     assignOrderCycles(L, x => x.date, (x, c) => { x.cycleFromName = c; }, x => x.cycleFromName);
     const dd = dedupe(L, x => x.date + '|' + x.cycleFromName, x => x.net, 'NETC', warnings);
-    prep.NETC = dd.map(x => ({ key: x.date + '|' + x.cycleFromName, date: x.date, cycle: String(x.cycleFromName), expected: x.net, file: x.filename,
+    prep.NETC = dd.map(x => ({ src: x, key: x.date + '|' + x.cycleFromName, date: x.date, cycle: String(x.cycleFromName), expected: x.net, file: x.filename,
       detail: { count: x.cnt, txnAmt: x.txnAmt, taxable: x.taxable, gst: x.gst, svcTotal: x.svcTotal, netPayable: Math.abs(x.net) } }));
   }
   { // NFS
     const L = intakeRes.nfs.slice();
     assignOrderCycles(L, x => x.date, (x, c) => { x.cycleFromName = c; }, x => x.cycleFromName);
     const dd = dedupe(L, x => x.date + '|C' + x.cycleFromName, x => x.finalAmt, 'NFS', warnings);
-    prep.NFS = dd.map(x => ({ key: x.date + '|C' + x.cycleFromName, date: x.date, cycle: 'C' + x.cycleFromName, expected: -r2(x.finalAmt), file: x.filename,
+    prep.NFS = dd.map(x => ({ src: x, key: x.date + '|C' + x.cycleFromName, date: x.date, cycle: 'C' + x.cycleFromName, expected: -r2(x.finalAmt), file: x.filename,
       detail: { atmCount: x.atmCount, atmAmt: x.atmAmt, atmFeeGst: x.atmTotFee, biCount: x.biCount, biFeeGst: x.biTot, microCount: x.microCount, microAmt: x.microAmt, microFeeGst: x.mTot,
-                swCount: x.swCnt, swFeeGst: x.swTot, disputes: x.disp, computedTotal: x.settTot, finalAmt: x.finalAmt } }));
+                swCount: x.swCnt, swFeeGst: x.swTot, disputes: x.disp, disputeCount: x.dispCount, computedTotal: x.settTot, finalAmt: x.finalAmt } }));
   }
   { // RuPay
     const L = intakeRes.rupay.slice();
     assignOrderCycles(L, x => x.date, (x, c) => { x.cycleFromName = c; }, x => x.cycleFromName);
     const dd = dedupe(L, x => x.date + '|C' + x.cycleFromName, x => x.data.net_settlement, 'RUPAY', warnings);
-    prep.RUPAY = dd.map(x => ({ key: x.date + '|C' + x.cycleFromName, date: x.date, cycle: 'C' + x.cycleFromName, expected: x.data.net_settlement, file: x.filename,
+    prep.RUPAY = dd.map(x => ({ src: x, key: x.date + '|C' + x.cycleFromName, date: x.date, cycle: 'C' + x.cycleFromName, expected: x.data.net_settlement, file: x.filename,
       detail: { sales: r2(x.data.pos_amt + x.data.ecom_amt + x.data.pos_gc_amt + x.data.ecom_gc_amt), cash: r2(x.data.cash_pos_amt), refunds: r2(x.data.refund_pos + x.data.refund_ecom), qsparc: r2(x.data.qsparc_settled),
                 chargebacks: r2(x.data.chargeback_pos + x.data.chargeback_ecom), represent: r2(x.data.repres_pos + x.data.repres_ecom), fees: x.data.fees,
                 interchange: r2(x.data.int_income_pos + x.data.int_income_ecom + x.data.int_income_pos_gc + x.data.int_income_ecom_gc + x.data.int_income_cash), gst: x.data.gst, gross: x.data.gross, finalNet: x.data.final_net }, warn: x.warn }));
   }
   { // UPI
     const dd = dedupe(intakeRes.upi.slice(), x => x.date + '|' + x.cycle, x => x.net, 'UPI', warnings);
-    prep.UPI = dd.map(x => ({ key: x.date + '|' + x.cycle, date: x.date, cycle: x.cycle, expected: x.net, file: x.filename,
+    prep.UPI = dd.map(x => ({ src: x, key: x.date + '|' + x.cycle, date: x.date, cycle: x.cycle, expected: x.net, file: x.filename,
       detail: { debit: x.debit, credit: x.credit, net: x.net, txnDebit: x.txnDebit, txnCredit: x.txnCredit, rows: x.rows } }));
   }
   return prep;

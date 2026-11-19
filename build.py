@@ -36,7 +36,7 @@ def assemble_os() -> str:
     """Recon OS = src/os/os.html with engine.js, export.js and ui.js inlined."""
     d = ROOT / "src" / "os"
     html = (d / "os.html").read_text(encoding="utf-8")
-    for marker, fname in (("/*__ENGINE__*/", "engine.js"), ("/*__EXPORT__*/", "export.js"), ("/*__UI__*/", "ui.js")):
+    for marker, fname in (("/*__ENGINE__*/", "engine.js"), ("/*__EXPORT__*/", "export.js"), ("/*__CONTROLSHEET__*/", "controlsheet.js"), ("/*__UI__*/", "ui.js")):
         js = (d / fname).read_text(encoding="utf-8")
         assert "</script" not in js.lower(), fname
         assert html.count(marker) == 1, marker

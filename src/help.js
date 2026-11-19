@@ -50,6 +50,13 @@ os: {
       <li>Duplicate bank references are summed (FASTag/NFS tabs used the last one); the reference-mismatch check applies to all products (was FASTag only).</li>
       <li>UPI: the posting day comes from the bank line, not from the fixed T / T+1 cycle table.</li></ul>`],
     ['Output', `<p><b>Download full report (Excel)</b>: Summary, Exceptions, Carry-over, one sheet per product (with the DSR/NTSL detail columns), Add Money, every Bank line with its result, and the Files log. File: <code>Recon_OS_YYYY-MM_DDMMYY.xlsx</code>.</p>`],
+    ['Control sheet download', `<p>A second Excel file with the month's <b>control sheets in the layout of your own control-sheet files</b>, one set per product. Source columns come from the DSR/NTSL files, the bank column from the matched bank lines, and every calculation column is a live formula:</p>
+      <table class="rt"><tr><th>Product</th><th>Sheets</th></tr>
+      <tr><td>FASTag (NETC)</td><td>control sheet (days × 3 cycles: count, amount, taxable value, GST @18%, net settlement, bank amount, settlement date, difference) + <b>Accounting Entry</b> (Customer wallet Dr, NETC A/c Cr, Omnicard income Cr, Diff). <i>Amount</i> = DSR final net + service fee, so Net Settlement ties to the DSR; two extra columns show the DSR toll/parking amount and the other DSR items</td></tr>
+      <tr><td>NFS</td><td>control sheet (days × 4 cycles: ATM / balance-inquiry / micro-ATM fees, switching fee, disputes, settlement total = D+G+M+Q+U−W+K, bank, difference) + <b>Workingsheet</b> (presentment, fees, GST, disputes as <i>Adjustment</i>, net settlement, balance)</td></tr>
+      <tr><td>RuPay</td><td>control sheet (the wide sheet with totals on row 4 and the working formulas on rows 1–2) + <b>Working Sheet</b> (presentment, refund, NPCI charges, GST, interchange income, chargeback, amount to be settled vs deducted, balance)</td></tr>
+      <tr><td>UPI</td><td><b>Summary</b> (wallet effect, NPCI charges, approver fees, GST, short &amp; excess, chargebacks, amount to be settled vs deducted, balance) + <b>Pivot Final</b> (Remarks × debit/credit) + <b>Working</b> (every NTSL line)</td></tr></table>
+      <p>The first sheet, <b>Control Summary</b>, lists each product's balance (amount to be settled − amount deducted); it should be about 0. A cycle with no source file is marked red in its Cycle cell; a cycle with no bank line has an empty bank column. Sheet names carry the product (e.g. <code>RuPay Control Sheet_Oct 26</code>) because all products are in one file. File: <code>Control_Sheets_YYYY-MM_DDMMYY.xlsx</code>.</p>`],
   ],
   how: [
     ['Steps', `<ol>
@@ -58,7 +65,7 @@ os: {
       <li>Check <b>What was found</b>: the squares show each day of each product (green = all cycles present, amber = some missing, red = none) and missing cycles are listed.</li>
       <li>Click <b>⚡ Reconcile everything</b>.</li>
       <li>Read the banner and the product cards, then open the tabs: <b>Overview</b>, <b>Exceptions</b>, <b>Carry-over</b>, the product tabs, <b>Bank lines</b>, <b>Files</b>.</li>
-      <li>Click <b>⬇ Download full report (Excel)</b>.</li></ol>`],
+      <li>Click <b>⬇ Download full report (Excel)</b> for the reconciliation, and <b>⬇ Control sheet download</b> for the month's control sheets in your control-sheet layout.</li></ol>`],
     ['Tips', `<ul>
       <li>You do not have to sort or rename anything: folders, zips-in-zips and mixed files are fine.</li>
       <li>Include the <b>Add Money Ops file</b> with the other files to reconcile the Add Money credits as well.</li>

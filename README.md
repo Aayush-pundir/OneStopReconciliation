@@ -12,7 +12,7 @@ and behave identically to standalone. A tab's uploaded files and results are kep
 
 ## Layout
 - `index.html` – built single-file dashboard (generated, commit it)
-- `src/os/` – **Recon OS**: `engine.js` (file detection, bank-statement reading, all matching rules; no screen code), `ui.js`, `export.js` (Excel report), `os.html` (page). Assembled into one tab by `build.py`
+- `src/os/` – **Recon OS**: `engine.js` (file detection, bank-statement reading, all matching rules; no screen code), `ui.js`, `export.js` (full Excel report), `controlsheet.js` (Control sheet download: the month's control sheets in the FASTag/NFS/RuPay/UPI control-sheet layouts), `os.html` (page). Assembled into one tab by `build.py`
 - `src/shell.html` – dashboard shell (sidebar, per-tab toolbar, help dialog)
 - `src/help.js` – text behind each tab's **Rules & parameters** and **How to use** icons (edit here if a tool's rules change)
 - `src/modules/*.html` – the individual reconciliation tools (original files, never edited by the build). `addmoney.html` is a port of the Recon-181026.xlsm macro (Module1 v3)
@@ -32,3 +32,4 @@ Note: FASTag, NFS and RuPay load SheetJS/ExcelJS/FileSaver from a CDN (internet 
 3. Click **Reconcile everything**; download the Excel report.
 
 The engine can be tested without a browser: it only needs `XLSX` (SheetJS) and `JSZip` as globals (see `src/os/engine.js`).
+3. Click **⬇ Control sheet download** for the month's control sheets (FASTag, NFS, RuPay, UPI) in the layout of the finance team's control-sheet files; its first sheet lists each product's balance (should be ≈ 0).

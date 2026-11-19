@@ -165,8 +165,10 @@ function renderResults() {
   const pStart = per.map(x => x.start).sort()[0], pEnd = per.map(x => x.end).sort().pop();
   $('banner').innerHTML = '<div class="banner ' + cls + '"><div><div class="big1">' + head + '</div><div class="sm">' + R.overall.matched.toLocaleString('en-IN') + ' of ' + R.overall.cycles.toLocaleString('en-IN') + ' cycles matched' +
     (nops ? ' · ' + nops + ' bank credits are not in the Ops file' : '') + (carry ? ' · ' + carry + ' bank lines belong to other months (carry-over)' : '') + ' · period ' + (pStart ? fd(pStart) + ' → ' + fd(pEnd) : '—') + ' · statement ' + fd(R.bank.meta.firstDate) + ' → ' + fd(R.bank.meta.lastDate) +
-    (ci.ok === false ? ' · <b>statement balances do not add up</b>' : '') + '</div></div><div class="sp"><button class="btn btn-g" id="dlBtn">⬇ Download full report (Excel)</button></div></div>';
+    (ci.ok === false ? ' · <b>statement balances do not add up</b>' : '') + '</div></div><div class="sp btns"><button class="btn btn-g" id="dlBtn">⬇ Download full report (Excel)</button>' +
+    (E.PRODUCTS.some(p => R.products[p]) ? '<button class="btn btn-o" id="csBtn" title="The month\'s control sheets in the layout of the FASTag, NFS, RuPay and UPI control-sheet files">⬇ Control sheet download</button>' : '') + '</div></div>';
   $('dlBtn').addEventListener('click', downloadReport);
+  if ($('csBtn')) $('csBtn').addEventListener('click', downloadControl);
   // product cards
   $('pcards').innerHTML = ps.map(p => {
     const P = R.products[p], t = P.totals, st = pstatus(p);
@@ -325,6 +327,12 @@ function overviewHtml() {
 async function downloadReport() {
   const b = $('dlBtn'), old = b.textContent; b.disabled = true; b.textContent = 'Building Excel…'; await tick();
   try { await window.OSExport.download(S.result, S.intake); } catch (e) { console.error(e); $('ptxt').textContent = '✗ Excel error: ' + e.message; }
+  b.disabled = false; b.textContent = old;
+}
+
+async function downloadControl() {
+  const b = $('csBtn'), old = b.textContent; b.disabled = true; b.textContent = 'Building control sheets…'; await tick();
+  try { await window.OSControlSheet.download(S.result); } catch (e) { console.error(e); $('ptxt').textContent = '✗ Control sheet error: ' + e.message; }
   b.disabled = false; b.textContent = old;
 }
 
